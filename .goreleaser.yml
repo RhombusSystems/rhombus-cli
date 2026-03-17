@@ -39,6 +39,7 @@ brews:
   - repository:
       owner: RhombusSystems
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     name: rhombus
     homepage: "https://github.com/RhombusSystems/rhombus-cli"
     description: "CLI for the Rhombus API"
