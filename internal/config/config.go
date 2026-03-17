@@ -26,6 +26,8 @@ type Config struct {
 	AuthType    string // "token" or "cert"
 	CertFile    string // path to client certificate PEM
 	KeyFile     string // path to client private key PEM
+	IsPartner   bool   // whether this is a partner-level credential
+	PartnerOrg  string // client org UUID for partner emulation (set via --partner-org flag)
 }
 
 func configDir() string {
@@ -83,6 +85,9 @@ func LoadConfig(profile string) Config {
 			if k, err := s.GetKey("key_file"); err == nil {
 				cfg.KeyFile = k.String()
 			}
+			if k, err := s.GetKey("is_partner"); err == nil {
+				cfg.IsPartner = k.String() == "true"
+			}
 		}
 	}
 
@@ -120,6 +125,9 @@ func LoadFromCmd(cmd *cobra.Command) Config {
 	}
 	if v, _ := cmd.Root().PersistentFlags().GetString("output"); v != "" {
 		cfg.Output = v
+	}
+	if v, _ := cmd.Root().PersistentFlags().GetString("partner-org"); v != "" {
+		cfg.PartnerOrg = v
 	}
 
 	return cfg
@@ -163,13 +171,29 @@ func SaveCredentials(profile, apiKey string) error {
 	})
 }
 
-func SaveCertCredentials(profile, apiKey, certFile, keyFile string) error {
+func SaveTokenCredentials(profile, apiKey string, isPartner bool) error {
 	return saveCredentialFields(profile, map[string]string{
-		"api_key":   apiKey,
-		"auth_type": AuthTypeCert,
-		"cert_file": certFile,
-		"key_file":  keyFile,
+		"api_key":    apiKey,
+		"auth_type":  AuthTypeToken,
+		"is_partner": boolStr(isPartner),
 	})
+}
+
+func SaveCertCredentials(profile, apiKey, certFile, keyFile string, isPartner bool) error {
+	return saveCredentialFields(profile, map[string]string{
+		"api_key":    apiKey,
+		"auth_type":  AuthTypeCert,
+		"cert_file":  certFile,
+		"key_file":   keyFile,
+		"is_partner": boolStr(isPartner),
+	})
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
 
 func SaveRefreshToken(profile, refreshToken string) error {

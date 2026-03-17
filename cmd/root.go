@@ -19,6 +19,7 @@ func init() {
 	rootCmd.PersistentFlags().String("output", "", "Output format: json, table, text")
 	rootCmd.PersistentFlags().String("api-key", "", "Override API key")
 	rootCmd.PersistentFlags().String("endpoint-url", "", "Override endpoint URL")
+	rootCmd.PersistentFlags().String("partner-org", "", "Client org UUID for partner API calls")
 
 	generated.RegisterAll(rootCmd)
 }

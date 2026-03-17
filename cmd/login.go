@@ -113,30 +113,32 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 		// Use the OAuth token to create a permanent API key
 		cfg := config.LoadConfig(profile)
+		isPartner := result.isPartner
 
 		// Try cert-based auth first, fall back to token-based
-		apiKey, err := createCertApiKey(cfg.EndpointURL, oauthAccessToken, profile)
-		if err == nil {
-			fmt.Println()
-			fmt.Printf("Successfully logged in with certificate auth! Credentials saved to profile \"%s\".\n", profile)
-			fmt.Println("Run 'rhombus camera get-minimal-camera-state-list' to verify.")
-			return nil
+		_, err = createApiKey(cfg.EndpointURL, oauthAccessToken, profile, isPartner, true)
+		if err != nil {
+			_, err = createApiKey(cfg.EndpointURL, oauthAccessToken, profile, isPartner, false)
 		}
-
-		// Fall back to token-based auth
-		fmt.Printf("Certificate auth unavailable (%v), using token auth...\n", err)
-		apiKey, err = createTokenApiKey(cfg.EndpointURL, oauthAccessToken)
 		if err != nil {
 			return fmt.Errorf("failed to create API key: %w", err)
 		}
 
-		if err := config.SaveCredentials(profile, apiKey); err != nil {
-			return fmt.Errorf("saving credentials: %w", err)
+		if isPartner {
+			fmt.Println()
+			fmt.Println("Partner account detected!")
+			fmt.Printf("Credentials saved to profile \"%s\".\n", profile)
+			fmt.Println()
+			fmt.Println("To make API calls as a client org, use the --partner-org flag:")
+			fmt.Println("  rhombus --partner-org <client-org-uuid> camera get-minimal-camera-state-list")
+			fmt.Println()
+			fmt.Println("To list your client orgs:")
+			fmt.Println("  rhombus partner get-partner-clients")
+		} else {
+			fmt.Println()
+			fmt.Printf("Successfully logged in! Credentials saved to profile \"%s\".\n", profile)
+			fmt.Println("Run 'rhombus camera get-minimal-camera-state-list' to verify.")
 		}
-
-		fmt.Println()
-		fmt.Printf("Successfully logged in! Credentials saved to profile \"%s\".\n", profile)
-		fmt.Println("Run 'rhombus camera get-minimal-camera-state-list' to verify.")
 		return nil
 
 	case <-time.After(5 * time.Minute):
@@ -148,6 +150,7 @@ type callbackData struct {
 	code        string
 	accessToken string
 	state       string
+	isPartner   bool
 	err         error
 }
 
@@ -182,6 +185,7 @@ func startCallbackServer(result chan<- callbackData) (net.Listener, error) {
 		code := q.Get("code")
 		accessToken := q.Get("accessToken")
 		state := q.Get("state")
+		isPartner := q.Get("isPartner") == "true"
 		errMsg := q.Get("error")
 
 		if errMsg != "" {
@@ -194,7 +198,7 @@ func startCallbackServer(result chan<- callbackData) (net.Listener, error) {
 
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, resultPage("Authentication Successful", "You can close this tab and return to your terminal."))
-		result <- callbackData{code: code, accessToken: accessToken, state: state}
+		result <- callbackData{code: code, accessToken: accessToken, state: state, isPartner: isPartner}
 	})
 
 	server := &http.Server{Handler: mux}
@@ -255,130 +259,40 @@ func exchangeCodeForToken(code, redirectURI, codeVerifier string) (*tokenRespons
 	return &token, nil
 }
 
-// createCertApiKey generates a private key and CSR, submits it to the API,
-// saves the signed cert and key, and configures cert-based auth for the profile.
-func createCertApiKey(endpointURL, oauthAccessToken, profile string) (string, error) {
-	fmt.Println("Generating client certificate...")
-
-	// Generate ECDSA private key
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return "", fmt.Errorf("generating private key: %w", err)
+// createApiKey attempts to create an API key. If partner=true, uses the partner endpoint.
+// If useCert=true, generates a CSR for cert-based auth; otherwise creates a token.
+func createApiKey(endpointURL, oauthAccessToken, profile string, partner, useCert bool) (string, error) {
+	endpoint := "/api/integrations/org/submitApiTokenApplication"
+	if partner {
+		endpoint = "/partner/submitApiTokenApplication"
 	}
-
-	// Create CSR
-	csrTemplate := x509.CertificateRequest{
-		Subject: pkix.Name{
-			CommonName: "rhombus-cli",
-		},
-	}
-	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, privateKey)
-	if err != nil {
-		return "", fmt.Errorf("creating CSR: %w", err)
-	}
-	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
-
-	// Submit to API
-	apiKey, certPEM, err := submitCertApplication(endpointURL, oauthAccessToken, string(csrPEM))
-	if err != nil {
-		return "", err
-	}
-
-	// Save private key and cert to profile cert dir
-	certDir := config.ProfileCertDir(profile)
-	if err := os.MkdirAll(certDir, 0700); err != nil {
-		return "", fmt.Errorf("creating cert dir: %w", err)
-	}
-
-	certFile := certDir + "/client.crt"
-	keyFile := certDir + "/client.key"
-
-	// Encode private key to PEM
-	keyDER, err := x509.MarshalECPrivateKey(privateKey)
-	if err != nil {
-		return "", fmt.Errorf("marshaling private key: %w", err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
-
-	if err := os.WriteFile(certFile, []byte(certPEM), 0600); err != nil {
-		return "", fmt.Errorf("writing cert: %w", err)
-	}
-	if err := os.WriteFile(keyFile, keyPEM, 0600); err != nil {
-		return "", fmt.Errorf("writing key: %w", err)
-	}
-
-	// Save cert-based credentials
-	if err := config.SaveCertCredentials(profile, apiKey, certFile, keyFile); err != nil {
-		return "", fmt.Errorf("saving credentials: %w", err)
-	}
-
-	return apiKey, nil
-}
-
-func submitCertApplication(endpointURL, oauthAccessToken, csrPEM string) (apiKey string, certPEM string, err error) {
-	reqBody := map[string]string{
-		"displayName": "Rhombus CLI",
-		"authType":    "CERT",
-		"csr":         csrPEM,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", "", fmt.Errorf("marshaling request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", endpointURL+"/api/integrations/org/submitApiTokenApplication",
-		strings.NewReader(string(jsonBody)))
-	if err != nil {
-		return "", "", fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-auth-scheme", "api-oauth-token")
-	req.Header.Set("x-auth-access-token", oauthAccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", fmt.Errorf("reading response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		ApiKey   string `json:"apiKey"`
-		Cert     string `json:"cert"`
-		ValidCSR bool   `json:"validCSR"`
-		Error    bool   `json:"error"`
-		ErrorMsg string `json:"errorMsg"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", "", fmt.Errorf("parsing response: %w", err)
-	}
-
-	if result.Error {
-		return "", "", fmt.Errorf("%s", result.ErrorMsg)
-	}
-	if result.ApiKey == "" || result.Cert == "" {
-		return "", "", fmt.Errorf("incomplete response: missing API key or certificate")
-	}
-
-	return result.ApiKey, result.Cert, nil
-}
-
-// createTokenApiKey creates a token-based API key (fallback when cert auth fails).
-func createTokenApiKey(endpointURL, oauthAccessToken string) (string, error) {
-	fmt.Println("Creating API key...")
 
 	reqBody := map[string]string{
 		"displayName": "Rhombus CLI",
-		"authType":    "API_TOKEN",
+	}
+
+	var privateKey *ecdsa.PrivateKey
+
+	if useCert {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return "", fmt.Errorf("generating private key: %w", err)
+		}
+		privateKey = key
+
+		csrTemplate := x509.CertificateRequest{
+			Subject: pkix.Name{CommonName: "rhombus-cli"},
+		}
+		csrDER, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, privateKey)
+		if err != nil {
+			return "", fmt.Errorf("creating CSR: %w", err)
+		}
+		csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
+
+		reqBody["authType"] = "CERT"
+		reqBody["csr"] = string(csrPEM)
+	} else {
+		reqBody["authType"] = "API_TOKEN"
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -386,13 +300,16 @@ func createTokenApiKey(endpointURL, oauthAccessToken string) (string, error) {
 		return "", fmt.Errorf("marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", endpointURL+"/api/integrations/org/submitApiTokenApplication",
-		strings.NewReader(string(jsonBody)))
+	req, err := http.NewRequest("POST", endpointURL+endpoint, strings.NewReader(string(jsonBody)))
 	if err != nil {
 		return "", fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-auth-scheme", "api-oauth-token")
+	if partner {
+		req.Header.Set("x-auth-scheme", "partner-api-oauth-token")
+	} else {
+		req.Header.Set("x-auth-scheme", "api-oauth-token")
+	}
 	req.Header.Set("x-auth-access-token", oauthAccessToken)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -412,6 +329,8 @@ func createTokenApiKey(endpointURL, oauthAccessToken string) (string, error) {
 
 	var result struct {
 		ApiKey   string `json:"apiKey"`
+		Cert     string `json:"cert"`
+		ValidCSR bool   `json:"validCSR"`
 		Error    bool   `json:"error"`
 		ErrorMsg string `json:"errorMsg"`
 	}
@@ -424,6 +343,38 @@ func createTokenApiKey(endpointURL, oauthAccessToken string) (string, error) {
 	}
 	if result.ApiKey == "" {
 		return "", fmt.Errorf("no API key returned")
+	}
+
+	// Save credentials
+	if useCert && result.Cert != "" && privateKey != nil {
+		certDir := config.ProfileCertDir(profile)
+		if err := os.MkdirAll(certDir, 0700); err != nil {
+			return "", fmt.Errorf("creating cert dir: %w", err)
+		}
+
+		certFile := certDir + "/client.crt"
+		keyFile := certDir + "/client.key"
+
+		keyDER, err := x509.MarshalECPrivateKey(privateKey)
+		if err != nil {
+			return "", fmt.Errorf("marshaling private key: %w", err)
+		}
+		keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+		if err := os.WriteFile(certFile, []byte(result.Cert), 0600); err != nil {
+			return "", fmt.Errorf("writing cert: %w", err)
+		}
+		if err := os.WriteFile(keyFile, keyPEM, 0600); err != nil {
+			return "", fmt.Errorf("writing key: %w", err)
+		}
+
+		if err := config.SaveCertCredentials(profile, result.ApiKey, certFile, keyFile, partner); err != nil {
+			return "", fmt.Errorf("saving credentials: %w", err)
+		}
+	} else {
+		if err := config.SaveTokenCredentials(profile, result.ApiKey, partner); err != nil {
+			return "", fmt.Errorf("saving credentials: %w", err)
+		}
 	}
 
 	return result.ApiKey, nil

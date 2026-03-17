@@ -37,18 +37,31 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("x-auth-apikey", cfg.ApiKey)
 
+	// Set partner org header if specified
+	if cfg.PartnerOrg != "" {
+		req.Header.Set("x-auth-org", cfg.PartnerOrg)
+	}
+
 	var client *http.Client
 
 	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
 		// mTLS cert-based auth
-		req.Header.Set("x-auth-scheme", "api")
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api")
+		} else {
+			req.Header.Set("x-auth-scheme", "api")
+		}
 		client, err = getCertClient(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("loading client certificate: %w", err)
 		}
 	} else {
 		// Token-based auth
-		req.Header.Set("x-auth-scheme", "api-token")
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api-token")
+		} else {
+			req.Header.Set("x-auth-scheme", "api-token")
+		}
 		client = http.DefaultClient
 	}
 
