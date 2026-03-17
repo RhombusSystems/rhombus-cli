@@ -13,6 +13,9 @@ const (
 	DefaultEndpointURL = "https://api2.rhombussystems.com"
 	DefaultOutput      = "json"
 	DefaultProfile     = "default"
+
+	AuthTypeToken = "token"
+	AuthTypeCert  = "cert"
 )
 
 type Config struct {
@@ -20,6 +23,9 @@ type Config struct {
 	EndpointURL string
 	Output      string
 	Profile     string
+	AuthType    string // "token" or "cert"
+	CertFile    string // path to client certificate PEM
+	KeyFile     string // path to client private key PEM
 }
 
 func configDir() string {
@@ -35,11 +41,17 @@ func CredentialsFilePath() string {
 	return filepath.Join(configDir(), "credentials")
 }
 
+// ProfileCertDir returns the directory for storing cert/key files for a profile.
+func ProfileCertDir(profile string) string {
+	return filepath.Join(configDir(), "certs", profile)
+}
+
 func LoadConfig(profile string) Config {
 	cfg := Config{
 		EndpointURL: DefaultEndpointURL,
 		Output:      DefaultOutput,
 		Profile:     profile,
+		AuthType:    AuthTypeToken,
 	}
 
 	// Load config file
@@ -61,6 +73,15 @@ func LoadConfig(profile string) Config {
 		if s, err := f.GetSection(section); err == nil {
 			if k, err := s.GetKey("api_key"); err == nil {
 				cfg.ApiKey = k.String()
+			}
+			if k, err := s.GetKey("auth_type"); err == nil {
+				cfg.AuthType = k.String()
+			}
+			if k, err := s.GetKey("cert_file"); err == nil {
+				cfg.CertFile = k.String()
+			}
+			if k, err := s.GetKey("key_file"); err == nil {
+				cfg.KeyFile = k.String()
 			}
 		}
 	}
@@ -136,6 +157,28 @@ func SaveConfig(profile, output, endpointURL string) error {
 }
 
 func SaveCredentials(profile, apiKey string) error {
+	return saveCredentialFields(profile, map[string]string{
+		"api_key":   apiKey,
+		"auth_type": AuthTypeToken,
+	})
+}
+
+func SaveCertCredentials(profile, apiKey, certFile, keyFile string) error {
+	return saveCredentialFields(profile, map[string]string{
+		"api_key":   apiKey,
+		"auth_type": AuthTypeCert,
+		"cert_file": certFile,
+		"key_file":  keyFile,
+	})
+}
+
+func SaveRefreshToken(profile, refreshToken string) error {
+	return saveCredentialFields(profile, map[string]string{
+		"refresh_token": refreshToken,
+	})
+}
+
+func saveCredentialFields(profile string, fields map[string]string) error {
 	dir := configDir()
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -147,11 +190,17 @@ func SaveCredentials(profile, apiKey string) error {
 		f = ini.Empty()
 	}
 
-	s, err := f.NewSection(profile)
+	s, err := f.GetSection(profile)
 	if err != nil {
-		return err
+		s, err = f.NewSection(profile)
+		if err != nil {
+			return err
+		}
 	}
-	s.Key("api_key").SetValue(apiKey)
+
+	for k, v := range fields {
+		s.Key(k).SetValue(v)
+	}
 
 	if err := f.SaveTo(path); err != nil {
 		return err
@@ -160,7 +209,6 @@ func SaveCredentials(profile, apiKey string) error {
 }
 
 func sectionName(f *ini.File, profile string) string {
-	// Try "profile <name>" first (AWS-style), then bare name
 	if profile == DefaultProfile {
 		return DefaultProfile
 	}
@@ -175,9 +223,14 @@ func PrintConfig(cfg Config) {
 	fmt.Printf("Profile:      %s\n", cfg.Profile)
 	fmt.Printf("Endpoint URL: %s\n", cfg.EndpointURL)
 	fmt.Printf("Output:       %s\n", cfg.Output)
+	fmt.Printf("Auth Type:    %s\n", cfg.AuthType)
 	if cfg.ApiKey != "" {
 		fmt.Printf("API Key:      ****%s\n", cfg.ApiKey[max(0, len(cfg.ApiKey)-4):])
 	} else {
 		fmt.Println("API Key:      (not set)")
+	}
+	if cfg.AuthType == AuthTypeCert {
+		fmt.Printf("Cert File:    %s\n", cfg.CertFile)
+		fmt.Printf("Key File:     %s\n", cfg.KeyFile)
 	}
 }
