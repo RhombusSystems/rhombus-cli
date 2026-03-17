@@ -28,21 +28,46 @@ echo "Fetching latest release..."
 version="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')"
 echo "Latest version: ${version}"
 
-# Download
-asset="rhombus-cli_${version}_${os}_${arch}.tar.gz"
-url="https://github.com/${REPO}/releases/download/v${version}/${asset}"
-
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
+
+# On Linux, prefer native packages if package manager is available
+if [ "$os" = "linux" ]; then
+    if command -v dpkg >/dev/null 2>&1; then
+        asset="rhombus-cli_${version}_${arch}.deb"
+        url="https://github.com/${REPO}/releases/download/v${version}/${asset}"
+        echo "Downloading ${asset}..."
+        curl -fsSL "$url" -o "${tmpdir}/${asset}"
+        echo "Installing .deb package..."
+        sudo dpkg -i "${tmpdir}/${asset}"
+        echo ""
+        echo "Rhombus CLI v${version} installed via dpkg"
+        echo "Run 'rhombus --help' to get started."
+        exit 0
+    elif command -v rpm >/dev/null 2>&1; then
+        asset="rhombus-cli_${version}_${arch}.rpm"
+        url="https://github.com/${REPO}/releases/download/v${version}/${asset}"
+        echo "Downloading ${asset}..."
+        curl -fsSL "$url" -o "${tmpdir}/${asset}"
+        echo "Installing .rpm package..."
+        sudo rpm -U "${tmpdir}/${asset}"
+        echo ""
+        echo "Rhombus CLI v${version} installed via rpm"
+        echo "Run 'rhombus --help' to get started."
+        exit 0
+    fi
+fi
+
+# Fallback: download tarball and copy binary
+asset="rhombus-cli_${version}_${os}_${arch}.tar.gz"
+url="https://github.com/${REPO}/releases/download/v${version}/${asset}"
 
 echo "Downloading ${asset}..."
 curl -fsSL "$url" -o "${tmpdir}/${asset}"
 
-# Extract
 echo "Extracting..."
 tar -xzf "${tmpdir}/${asset}" -C "$tmpdir"
 
-# Install
 echo "Installing to ${INSTALL_DIR}/rhombus..."
 if [ -w "$INSTALL_DIR" ]; then
     cp "${tmpdir}/rhombus" "${INSTALL_DIR}/rhombus"

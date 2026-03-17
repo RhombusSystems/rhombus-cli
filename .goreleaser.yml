@@ -29,6 +29,18 @@ archives:
           - zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+nfpms:
+  - id: rhombus
+    package_name: rhombus
+    vendor: Rhombus Systems
+    homepage: "https://github.com/RhombusSystems/rhombus-cli"
+    description: "CLI for the Rhombus API"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/local/bin
+
 checksum:
   name_template: "checksums.txt"
 
