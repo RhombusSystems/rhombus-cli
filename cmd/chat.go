@@ -44,6 +44,7 @@ func init() {
 
 func runChat(cmd *cobra.Command, args []string) error {
 	cfg := config.LoadFromCmd(cmd)
+	chatProfile = cfg.Profile
 
 	fmt.Println("Rhombus MIND Chat (powered by Claude)")
 	fmt.Println("Ask questions about your cameras, events, and devices. Type 'exit' to quit.")
@@ -51,9 +52,13 @@ func runChat(cmd *cobra.Command, args []string) error {
 
 	contextID := fmt.Sprintf("cli-%d", time.Now().UnixMilli())
 
-	// Send tool definitions as the first message
+	// Send tool definitions as the first message and wait for it to be processed
+	fmt.Print("\033[2mInitializing tools...\033[0m")
 	if err := sendToolDefinitions(cfg, contextID); err != nil {
+		fmt.Printf("\r\033[K")
 		fmt.Fprintf(os.Stderr, "Warning: failed to register tools: %v\n", err)
+	} else {
+		fmt.Printf("\r\033[K")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -92,7 +97,7 @@ func sendToolDefinitions(cfg config.Config, contextID string) error {
 
 	query := "[TOOLS]" + string(toolsJSON)
 
-	_, err = client.APICall(cfg, "/api/chatbot/submitChat", map[string]any{
+	resp, err := client.APICall(cfg, "/api/chatbot/submitChat", map[string]any{
 		"contextId": contextID,
 		"query":     query,
 	})
@@ -100,8 +105,43 @@ func sendToolDefinitions(cfg config.Config, contextID string) error {
 		return err
 	}
 
-	// Wait briefly for it to be processed
-	time.Sleep(500 * time.Millisecond)
+	recordUuid, _ := resp["chatRecordUuid"].(string)
+	if recordUuid == "" {
+		return nil
+	}
+
+	// Wait for the tools message to be fully processed before continuing
+	for i := 0; i < 30; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		pollResp, err := client.APICall(cfg, "/api/chatbot/getChatRecord", map[string]any{
+			"recordUuid": recordUuid,
+		})
+		if err != nil {
+			continue
+		}
+
+		chat, ok := pollResp["chat"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		// Any response means it's been processed
+		if _, hasResponse := chat["response"]; hasResponse {
+			return nil
+		}
+
+		timeline, _ := chat["timeline"].([]any)
+		if len(timeline) > 0 {
+			lastEvent, _ := timeline[len(timeline)-1].(map[string]any)
+			status, _ := lastEvent["status"].(string)
+			// If it reached any final status, it's done
+			if status == "ANSWERED" || status == "NO_RESPONSE" || status == "PARTIALLY_ANSWERED" {
+				return nil
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -264,6 +304,8 @@ func pollForResponse(cfg config.Config, recordUuid string) (string, error) {
 	return "", fmt.Errorf("timed out waiting for response")
 }
 
+var chatProfile string
+
 func executeRhombusCommand(command string) string {
 	args := strings.Fields(command)
 
@@ -273,6 +315,9 @@ func executeRhombusCommand(command string) string {
 	}
 
 	args = append(args, "--output", "json")
+	if chatProfile != "" {
+		args = append(args, "--profile", chatProfile)
+	}
 
 	cmd := exec.Command(executable, args...)
 	output, err := cmd.CombinedOutput()
