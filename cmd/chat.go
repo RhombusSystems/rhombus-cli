@@ -90,9 +90,9 @@ func runChat(cmd *cobra.Command, args []string) error {
 }
 
 func pollForResponse(cfg config.Config, recordUuid string) (string, error) {
-	maxAttempts := 120 // 2 minutes at 1 second intervals
+	maxAttempts := 240 // 2 minutes at 500ms intervals
 	for i := 0; i < maxAttempts; i++ {
-		time.Sleep(1 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 
 		resp, err := client.APICall(cfg, "/api/chatbot/getChatRecord", map[string]any{
 			"recordUuid": recordUuid,
@@ -104,6 +104,25 @@ func pollForResponse(cfg config.Config, recordUuid string) (string, error) {
 		chat, ok := resp["chat"].(map[string]any)
 		if !ok || chat == nil {
 			continue
+		}
+
+		// Check timeline for a final status
+		timeline, _ := chat["timeline"].([]any)
+		if len(timeline) > 0 {
+			lastEvent, _ := timeline[len(timeline)-1].(map[string]any)
+			status, _ := lastEvent["status"].(string)
+
+			// Check for failure statuses
+			switch status {
+			case "NO_RESPONSE", "INVALID_REQUEST", "UNAUTHORIZED", "UNSUPPORTED",
+				"DENIED", "NOT_UNDERSTOOD", "INTERRUPTED", "INVALID_AUTH_DATA",
+				"INVALID_API_TOKEN", "MIND_DISABLED", "OUT_OF_TRIAL_CREDITS":
+				desc, _ := lastEvent["description"].(string)
+				if desc == "" {
+					desc = status
+				}
+				return "", fmt.Errorf("%s", desc)
+			}
 		}
 
 		// Check if there's a response
