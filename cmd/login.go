@@ -264,7 +264,7 @@ func exchangeCodeForToken(code, redirectURI, codeVerifier string) (*tokenRespons
 func createApiKey(endpointURL, oauthAccessToken, profile string, partner, useCert bool) (string, error) {
 	endpoint := "/api/integrations/org/submitApiTokenApplication"
 	if partner {
-		endpoint = "/partner/submitApiTokenApplication"
+		endpoint = "/api/partner/submitApiTokenApplication"
 	}
 
 	reqBody := map[string]string{
@@ -423,13 +423,93 @@ func openBrowser(rawURL string) {
 func resultPage(title, message string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
-<head><title>%s — Rhombus CLI</title>
+<head>
+<title>%s — Rhombus CLI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
-  .card { background: white; border-radius: 12px; padding: 48px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 400px; }
-  h1 { color: #1a1a1a; font-size: 24px; margin-bottom: 12px; }
-  p { color: #666; font-size: 16px; }
-</style></head>
-<body><div class="card"><h1>%s</h1><p>%s</p></div></body>
-</html>`, title, title, message)
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    width: 100%%;
+    height: 100vh;
+  }
+  .left {
+    flex-grow: 1;
+    background: linear-gradient(120deg, #00536A, #17323B);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .left svg { width: 120px; height: 120px; opacity: 0.15; }
+  .right {
+    width: 50%%;
+    max-width: 600px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2.5rem;
+  }
+  .logo {
+    width: 140px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    color: #0B0C0D;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: normal;
+    margin-bottom: 12px;
+  }
+  p {
+    color: #55585C;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .check {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%%;
+    background: #2A7DE1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+  }
+  .check svg { width: 28px; height: 28px; }
+  .footer {
+    color: #AEB3B8;
+    font-size: 12px;
+    margin-top: 40px;
+  }
+  @media (max-width: 900px) {
+    .left { display: none; }
+    .right { width: 100%%; max-width: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="left">
+    <svg viewBox="0 0 100 100" fill="white"><rect x="20" y="20" width="60" height="60" rx="8" transform="rotate(45 50 50)"/></svg>
+  </div>
+  <div class="right">
+    <svg class="logo" viewBox="0 0 600 120" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%%" stop-color="#46cce2"/><stop offset="100%%" stop-color="#0077b6"/></linearGradient></defs>
+      <g transform="translate(10,10)"><rect width="70" height="70" rx="10" transform="rotate(45 35 35)" fill="url(#g)"/><circle cx="35" cy="35" r="10" fill="white"/></g>
+      <text x="120" y="82" font-family="'Nunito Sans',sans-serif" font-size="72" font-weight="900" fill="#1a2332">rhombus</text>
+    </svg>
+    <div class="check">
+      <svg fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h1>%s</h1>
+    <p>%s</p>
+    <div class="footer">&copy; Rhombus, Inc %d</div>
+  </div>
+</body>
+</html>`, title, title, message, time.Now().Year())
 }
