@@ -18,7 +18,23 @@ import (
 var toolDefinitions = []map[string]any{
 	{
 		"name":        "rhombus_cli",
-		"description": "Execute a rhombus CLI command to query the Rhombus API. Do not include the 'rhombus' prefix. Examples: 'camera get-minimal-camera-state-list', 'event get-policy-alerts-v2 --after-timestamp-ms 1234567890000'. Use '--generate-cli-skeleton' on any operation to discover its parameters.",
+		"description": `Execute a rhombus CLI command to query the Rhombus API. Do not include the 'rhombus' prefix.
+
+Key commands:
+- camera get-minimal-camera-state-list — list all cameras
+- event get-policy-alerts-v2 --after-timestamp-ms <epoch_ms> — get recent alerts
+- event get-policy-alert-details --policy-alert-uuid <uuid> — get alert details with seekpoints/bounding boxes
+- alert recent --after "24h ago" — list recent policy alerts with camera names
+- alert thumb <alert-uuid> — download and open alert thumbnail
+- alert play <alert-uuid> — play alert clip in browser
+- alert download <alert-uuid> — download alert clip
+- live <camera-name> — open live video stream in browser
+- video get-exact-frame-uri --camera-uuid <uuid> --timestamp-ms <ms> — get a frame URL
+- access-control get-location-access-grants-by-org — get access control grants
+- user get-users-in-org — list users
+- sensor get-environmental-events — get sensor data
+
+Use '--help' on any command to see available operations and '--generate-cli-skeleton' to discover parameters.`,
 		"input_schema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
