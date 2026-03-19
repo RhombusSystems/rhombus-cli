@@ -49,7 +49,7 @@ func runLive(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("starting player server: %w", err)
 	}
 
-	openInBrowser(serverURL)
+	openInBrowserNewWindow(serverURL)
 
 	fmt.Printf("Live stream opened in browser.\n")
 	fmt.Println("Press Ctrl+C to stop.")
@@ -282,18 +282,36 @@ func generatePlayerHTML(cameraName, streamURL string) (string, error) {
 }
 
 func openInBrowser(url string) {
-	var cmd *exec.Cmd
+	openInBrowserImpl(url, false)
+}
+
+func openInBrowserNewWindow(url string) {
+	openInBrowserImpl(url, true)
+}
+
+func openInBrowserImpl(url string, newWindow bool) {
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		if newWindow {
+			// Try Chrome first, then fall back to default
+			cmd := exec.Command("open", "-na", "Google Chrome", "--args", "--new-window", url)
+			if cmd.Start() == nil {
+				return
+			}
+			// Fallback to default browser
+			exec.Command("open", url).Start()
+			return
+		}
+		exec.Command("open", url).Start()
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
+		exec.Command("xdg-open", url).Start()
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return
+		if newWindow {
+			exec.Command("cmd", "/c", "start", "chrome", "--new-window", url).Start()
+			return
+		}
+		exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	}
-	_ = cmd.Start()
 }
 
 const (

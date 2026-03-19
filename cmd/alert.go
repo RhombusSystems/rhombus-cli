@@ -166,7 +166,7 @@ func runAlertThumbnail(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Thumbnail saved: %s\n", outputPath)
-	openInBrowser("file://" + outputPath)
+	openInBrowserNewWindow("file://" + outputPath)
 	return nil
 }
 
@@ -227,7 +227,7 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("starting player: %w", err)
 	}
 
-	openInBrowser(serverURL)
+	openInBrowserNewWindow(serverURL)
 	fmt.Println("Alert clip opened in browser.")
 	fmt.Println("Press Ctrl+C to stop.")
 
