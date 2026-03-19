@@ -157,7 +157,7 @@ func runAlertThumbnail(cmd *cobra.Command, args []string) error {
 	thumbnailURL := fmt.Sprintf("%s/media/metadata/%s/%s.jpeg", mediaBaseURL, region, alertUuid)
 
 	if outputPath == "" {
-		outputPath = fmt.Sprintf("alert_%s.jpeg", alertUuid)
+		outputPath = filepath.Join(os.TempDir(), fmt.Sprintf("alert_%s.jpeg", alertUuid))
 	}
 
 	fmt.Printf("Downloading alert thumbnail...\n")
@@ -166,6 +166,7 @@ func runAlertThumbnail(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Thumbnail saved: %s\n", outputPath)
+	openInBrowser("file://" + outputPath)
 	return nil
 }
 
