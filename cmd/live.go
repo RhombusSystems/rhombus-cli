@@ -50,29 +50,12 @@ func runLive(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no federated token returned")
 	}
 
-	// Get media URIs
-	mediaResp, err := client.APICall(cfg, "/api/camera/getMediaUris", map[string]any{
-		"cameraUuid": cameraUUID,
-	})
-	if err != nil {
-		return fmt.Errorf("getting media URIs: %w", err)
-	}
-
-	mpdUri, _ := mediaResp["wanLiveMpdUri"].(string)
-	if mpdUri == "" {
-		return fmt.Errorf("no live MPD URI available for this camera")
-	}
-
-	// Append federated token auth
-	streamURL := mpdUri + "?x-auth-scheme=federated-token&x-auth-ft=" + federatedToken
-
-	// Generate HTML file
-	htmlPath, err := generatePlayerHTML(cameraName, streamURL)
+	// Generate local HTML that loads the hosted API player assets
+	htmlPath, err := generateApiPlayerHTML(cameraUUID, cameraName, federatedToken)
 	if err != nil {
 		return fmt.Errorf("generating player: %w", err)
 	}
 
-	// Open in browser
 	openInBrowser("file://" + htmlPath)
 
 	fmt.Printf("Live stream opened in browser.\n")
@@ -316,4 +299,51 @@ func openInBrowser(url string) {
 		return
 	}
 	_ = cmd.Start()
+}
+
+const apiPlayerAssetsBase = "https://bs-api-player.console.itg.rhombussystems.com/api"
+
+func generateApiPlayerHTML(cameraUUID, cameraName, federatedToken string) (string, error) {
+	tmpDir := filepath.Join(os.TempDir(), "rhombus-live")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", err
+	}
+
+	htmlPath := filepath.Join(tmpDir, "player.html")
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>%s — Rhombus Player</title>
+  <link rel="stylesheet" href="%s/assets/index-D66MeRQc.css" />
+  <style>
+    html, body, #root { height: 100%%; margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="root" style="height: 100%%"></div>
+  <script>
+    // Inject player config before the app loads
+    window.__RHOMBUS_API_PLAYER__ = {
+      cameraUuid: "%s",
+      cameraName: "%s",
+      federatedToken: "%s",
+    };
+    // Rewrite location so the app's router matches /api/player/:cameraUuid
+    history.replaceState(null, "", "/api/player/%s?ft=%s&name=%s");
+  </script>
+  <script type="module" src="%s/assets/index-CW-Rip9v.js"></script>
+</body>
+</html>`, cameraName, apiPlayerAssetsBase,
+		cameraUUID, cameraName, federatedToken,
+		cameraUUID, federatedToken, cameraName,
+		apiPlayerAssetsBase)
+
+	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
+		return "", err
+	}
+
+	return htmlPath, nil
 }

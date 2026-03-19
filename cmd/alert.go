@@ -210,7 +210,6 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 	}
 
 	deviceUuid, _ := alert["deviceUuid"].(string)
-	region := getAlertRegion(alert, "clipLocation")
 	tsMs, _ := alert["timestampMs"].(float64)
 	durSec, _ := alert["durationSec"].(float64)
 
@@ -231,11 +230,7 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 	}
 	federatedToken, _ := fedResp["federatedSessionToken"].(string)
 
-	clipMpdURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s/clip.mpd",
-		mediaBaseURL, deviceUuid, region, alertUuid)
-	streamURL := clipMpdURL + "?x-auth-scheme=federated-token&x-auth-ft=" + federatedToken
-
-	htmlPath, err := generatePlayerHTML(fmt.Sprintf("%s — Alert", camName), streamURL)
+	htmlPath, err := generateApiPlayerHTML(deviceUuid, camName, federatedToken)
 	if err != nil {
 		return fmt.Errorf("generating player: %w", err)
 	}
