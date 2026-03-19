@@ -3,10 +3,15 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/RhombusSystems/rhombus-cli/internal/client"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
@@ -38,29 +43,19 @@ func runLive(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Opening live stream for %s...\n", cameraName)
 
-	// Generate federated session token
-	fedResp, err := client.APICall(cfg, "/api/org/generateFederatedSessionToken", map[string]any{
-		"durationSec": duration,
-	})
+	// Start the local server first so we know the port
+	serverURL, _, err := startPlayerServer(cameraUUID, cameraName, cfg, duration)
 	if err != nil {
-		return fmt.Errorf("generating federated token: %w", err)
-	}
-	federatedToken, _ := fedResp["federatedSessionToken"].(string)
-	if federatedToken == "" {
-		return fmt.Errorf("no federated token returned")
+		return fmt.Errorf("starting player server: %w", err)
 	}
 
-	// Generate local HTML that loads the hosted API player assets
-	htmlPath, err := generateApiPlayerHTML(cameraUUID, cameraName, federatedToken)
-	if err != nil {
-		return fmt.Errorf("generating player: %w", err)
-	}
-
-	openInBrowser("file://" + htmlPath)
+	openInBrowser(serverURL)
 
 	fmt.Printf("Live stream opened in browser.\n")
-	fmt.Printf("Token expires in %d seconds.\n", duration)
-	return nil
+	fmt.Println("Press Ctrl+C to stop.")
+
+	// Keep the process alive so the local HTTP server stays running
+	select {}
 }
 
 func resolveCamera(cfg config.Config, cameraArg string) (uuid string, name string, err error) {
@@ -301,49 +296,172 @@ func openInBrowser(url string) {
 	_ = cmd.Start()
 }
 
-const apiPlayerAssetsBase = "https://bs-api-player.console.itg.rhombussystems.com/api"
+const (
+	apiPlayerAssetsURL = "https://public-bucket-itg.s3.us-west-2.amazonaws.com/rhombus-cli"
+	apiPlayerJSFile    = "index-BtGEYTAQ.js"
+	apiPlayerCSSFile   = "index-CE1zZXB9.css"
+)
 
-func generateApiPlayerHTML(cameraUUID, cameraName, federatedToken string) (string, error) {
-	tmpDir := filepath.Join(os.TempDir(), "rhombus-live")
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
-		return "", err
+// ensureApiPlayerAssets downloads the player JS/CSS to ~/.rhombus/player/ if not already cached.
+func ensureApiPlayerAssets() (string, error) {
+	playerDir := filepath.Join(rhombusDir(), "player", "assets")
+	if err := os.MkdirAll(playerDir, 0755); err != nil {
+		return "", fmt.Errorf("creating player dir: %w", err)
 	}
 
-	htmlPath := filepath.Join(tmpDir, "player.html")
+	for _, file := range []string{apiPlayerJSFile, apiPlayerCSSFile} {
+		localPath := filepath.Join(playerDir, file)
+		if _, err := os.Stat(localPath); err == nil {
+			continue // already cached
+		}
 
+		url := apiPlayerAssetsURL + "/assets/" + file
+		fmt.Printf("Downloading player asset: %s\n", file)
+
+		resp, err := http.Get(url)
+		if err != nil {
+			return "", fmt.Errorf("downloading %s: %w", file, err)
+		}
+
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return "", fmt.Errorf("downloading %s: HTTP %d", file, resp.StatusCode)
+		}
+
+		f, err := os.Create(localPath)
+		if err != nil {
+			resp.Body.Close()
+			return "", fmt.Errorf("creating %s: %w", file, err)
+		}
+		io.Copy(f, resp.Body)
+		f.Close()
+		resp.Body.Close()
+	}
+
+	return playerDir, nil
+}
+
+func startPlayerServer(cameraUUID, cameraName string, cfg config.Config, duration int) (string, int, error) {
+	assetsDir, err := ensureApiPlayerAssets()
+	if err != nil {
+		return "", 0, err
+	}
+
+	playerDir := filepath.Dir(assetsDir)
+
+	// Start local HTTP server
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", 0, fmt.Errorf("starting local server: %w", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	origin := fmt.Sprintf("http://localhost:%d", port)
+
+	// Generate initial federated token with the correct domain
+	federatedToken, err := generateFederatedToken(cfg, duration, origin)
+	if err != nil {
+		return "", 0, err
+	}
+
+	// Write the HTML
+	htmlPath := filepath.Join(playerDir, "player.html")
+	if err := writePlayerHTML(htmlPath, cameraName, cameraUUID, federatedToken); err != nil {
+		return "", 0, err
+	}
+
+	// Auto-refresh the token every 50 minutes (before the 60min expiry)
+	go func() {
+		ticker := time.NewTicker(50 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			newToken, err := generateFederatedToken(cfg, duration, origin)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "\nWarning: failed to refresh token: %v\n", err)
+				continue
+			}
+			federatedToken = newToken
+			writePlayerHTML(htmlPath, cameraName, cameraUUID, federatedToken)
+			fmt.Fprintf(os.Stderr, "\nToken refreshed.\n")
+		}
+	}()
+
+	// Serve local assets, proxy missing from remote, SPA fallback
+	remoteBase := apiPlayerAssetsURL
+	go func() {
+		mux := http.NewServeMux()
+		fs := http.FileServer(http.Dir(playerDir))
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			localPath := filepath.Join(playerDir, r.URL.Path)
+			if info, statErr := os.Stat(localPath); statErr == nil && !info.IsDir() {
+				fs.ServeHTTP(w, r)
+				return
+			}
+
+			if strings.HasPrefix(r.URL.Path, "/assets/") ||
+				strings.HasSuffix(r.URL.Path, ".js") ||
+				strings.HasSuffix(r.URL.Path, ".css") ||
+				strings.HasSuffix(r.URL.Path, ".wasm") ||
+				strings.HasSuffix(r.URL.Path, ".png") ||
+				strings.HasSuffix(r.URL.Path, ".svg") ||
+				strings.HasSuffix(r.URL.Path, ".woff") ||
+				strings.HasSuffix(r.URL.Path, ".woff2") {
+				remoteURL := remoteBase + r.URL.Path
+				proxyResp, proxyErr := http.Get(remoteURL)
+				if proxyErr == nil && proxyResp.StatusCode == 200 {
+					for k, v := range proxyResp.Header {
+						w.Header()[k] = v
+					}
+					io.Copy(w, proxyResp.Body)
+					proxyResp.Body.Close()
+					return
+				}
+				if proxyResp != nil {
+					proxyResp.Body.Close()
+				}
+			}
+
+			http.ServeFile(w, r, htmlPath)
+		})
+		http.Serve(listener, mux)
+	}()
+
+	playerURL := fmt.Sprintf("%s/api/player/%s?ft=%s&name=%s",
+		origin, cameraUUID, federatedToken, cameraName)
+	return playerURL, port, nil
+}
+
+func generateFederatedToken(cfg config.Config, duration int, domain string) (string, error) {
+	fedResp, err := client.APICall(cfg, "/api/org/generateFederatedSessionToken", map[string]any{
+		"durationSec": duration,
+		"domain":      domain,
+	})
+	if err != nil {
+		return "", fmt.Errorf("generating federated token: %w", err)
+	}
+	token, _ := fedResp["federatedSessionToken"].(string)
+	if token == "" {
+		return "", fmt.Errorf("no federated token returned")
+	}
+	return token, nil
+}
+
+func writePlayerHTML(htmlPath, cameraName, cameraUUID, federatedToken string) error {
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>%s — Rhombus Player</title>
-  <link rel="stylesheet" href="%s/assets/index-D66MeRQc.css" />
+  <link rel="stylesheet" href="/assets/%s" />
   <style>
     html, body, #root { height: 100%%; margin: 0; }
   </style>
 </head>
 <body>
   <div id="root" style="height: 100%%"></div>
-  <script>
-    // Inject player config before the app loads
-    window.__RHOMBUS_API_PLAYER__ = {
-      cameraUuid: "%s",
-      cameraName: "%s",
-      federatedToken: "%s",
-    };
-    // Rewrite location so the app's router matches /api/player/:cameraUuid
-    history.replaceState(null, "", "/api/player/%s?ft=%s&name=%s");
-  </script>
-  <script type="module" src="%s/assets/index-CW-Rip9v.js"></script>
+  <script type="module" src="/assets/%s"></script>
 </body>
-</html>`, cameraName, apiPlayerAssetsBase,
-		cameraUUID, cameraName, federatedToken,
-		cameraUUID, federatedToken, cameraName,
-		apiPlayerAssetsBase)
+</html>`, cameraName, apiPlayerCSSFile, apiPlayerJSFile)
 
-	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
-		return "", err
-	}
-
-	return htmlPath, nil
+	return os.WriteFile(htmlPath, []byte(html), 0644)
 }

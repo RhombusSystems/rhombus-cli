@@ -222,21 +222,16 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Playing alert: %s at %s (%.0fs)\n", camName,
 		time.UnixMilli(int64(tsMs)).Format("Jan 2 3:04:05 PM"), durSec)
 
-	fedResp, err := client.APICall(cfg, "/api/org/generateFederatedSessionToken", map[string]any{
-		"durationSec": 3600,
-	})
+	serverURL, _, err := startPlayerServer(deviceUuid, camName, cfg, 3600)
 	if err != nil {
-		return fmt.Errorf("generating federated token: %w", err)
-	}
-	federatedToken, _ := fedResp["federatedSessionToken"].(string)
-
-	htmlPath, err := generateApiPlayerHTML(deviceUuid, camName, federatedToken)
-	if err != nil {
-		return fmt.Errorf("generating player: %w", err)
+		return fmt.Errorf("starting player: %w", err)
 	}
 
-	openInBrowser("file://" + htmlPath)
+	openInBrowser(serverURL)
 	fmt.Println("Alert clip opened in browser.")
+	fmt.Println("Press Ctrl+C to stop.")
+
+	select {}
 	return nil
 }
 
