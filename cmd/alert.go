@@ -227,6 +227,8 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("starting player: %w", err)
 	}
 
+	serverURL += fmt.Sprintf("&start=%d", int64(tsMs))
+
 	openInBrowserNewWindow(serverURL)
 	fmt.Println("Alert clip opened in browser.")
 	fmt.Println("Press Ctrl+C to stop.")
