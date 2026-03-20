@@ -183,20 +183,110 @@ func runAlertDownload(cmd *cobra.Command, args []string) error {
 	deviceUuid, _ := alert["deviceUuid"].(string)
 	region := getAlertRegion(alert, "clipLocation")
 
-	clipMpdURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s/clip.mpd",
+	clipBaseURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s",
 		mediaBaseURL, deviceUuid, region, alertUuid)
 
 	if outputPath == "" {
-		outputPath = fmt.Sprintf("alert_%s.mpd", alertUuid)
+		outputPath = fmt.Sprintf("alert_%s.mp4", alertUuid)
 	}
 
-	fmt.Printf("Downloading alert clip...\n")
-	if err := downloadWithAuth(cfg, clipMpdURL, outputPath); err != nil {
-		return fmt.Errorf("download failed: %w", err)
+	fmt.Println("Downloading alert clip...")
+
+	// Download init segment
+	tmpDir, err := os.MkdirTemp("", "rhombus-clip-*")
+	if err != nil {
+		return fmt.Errorf("creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	initPath := filepath.Join(tmpDir, "seg_init.mp4")
+	if err := downloadWithAuth(cfg, clipBaseURL+"/seg_init.mp4", initPath); err != nil {
+		return fmt.Errorf("downloading init segment: %w", err)
 	}
 
-	fmt.Printf("Clip manifest saved: %s\n", outputPath)
-	fmt.Println("Note: This is a DASH manifest. Use 'rhombus alert play' to view in browser.")
+	// Download media segments until we get a 404
+	var segPaths []string
+	segPaths = append(segPaths, initPath)
+	for i := 1; i <= 100; i++ {
+		segPath := filepath.Join(tmpDir, fmt.Sprintf("seg_%d.m4v", i))
+		segURL := fmt.Sprintf("%s/seg_%d.m4v", clipBaseURL, i)
+		err := downloadWithAuthQuiet(cfg, segURL, segPath)
+		if err != nil {
+			break // no more segments
+		}
+		segPaths = append(segPaths, segPath)
+		fmt.Printf("\r  Segments: %d", i)
+	}
+	fmt.Println()
+
+	if len(segPaths) <= 1 {
+		return fmt.Errorf("no video segments found")
+	}
+
+	// Concatenate init + segments into a single MP4
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("creating output file: %w", err)
+	}
+	defer outFile.Close()
+
+	for _, segPath := range segPaths {
+		data, err := os.ReadFile(segPath)
+		if err != nil {
+			return fmt.Errorf("reading segment: %w", err)
+		}
+		outFile.Write(data)
+	}
+
+	info, _ := outFile.Stat()
+	fmt.Printf("Clip saved: %s (%.1f KB)\n", outputPath, float64(info.Size())/1024)
+
+	absPath, _ := filepath.Abs(outputPath)
+	openInBrowserNewWindow("file://" + absPath)
+	return nil
+}
+
+func downloadWithAuthQuiet(cfg config.Config, mediaURL, outputPath string) error {
+	req, err := http.NewRequest("GET", mediaURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("x-auth-apikey", cfg.ApiKey)
+	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api")
+		} else {
+			req.Header.Set("x-auth-scheme", "api")
+		}
+	} else {
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api-token")
+		} else {
+			req.Header.Set("x-auth-scheme", "api-token")
+		}
+	}
+
+	httpClient, err := client.GetMediaHTTPClient(cfg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	io.Copy(f, resp.Body)
 	return nil
 }
 
