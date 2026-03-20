@@ -19,20 +19,22 @@ import (
 )
 
 func init() {
-	liveCmd := &cobra.Command{
-		Use:   "live [camera-name-or-uuid]",
-		Short: "Open a live video stream in the browser",
-		Long:  "Opens a live video feed from a Rhombus camera in your default browser. Accepts a camera UUID or partial name for fuzzy matching.",
+	footageCmd := &cobra.Command{
+		Use:   "footage [camera-name-or-uuid]",
+		Short: "View camera footage in the browser",
+		Long:  "Opens a Rhombus camera player in the browser. Defaults to live view. Use --start to jump to a specific time in the past.",
 		Args:  cobra.ExactArgs(1),
-		RunE:  runLive,
+		RunE:  runFootage,
 	}
-	liveCmd.Flags().Int("duration", 3600, "Federated token duration in seconds")
-	rootCmd.AddCommand(liveCmd)
+	footageCmd.Flags().String("start", "", "Start time (epoch ms, or relative like '5m ago', '1h ago'). Defaults to live.")
+	footageCmd.Flags().Int("token-duration", 3600, "Federated token duration in seconds")
+	rootCmd.AddCommand(footageCmd)
 }
 
-func runLive(cmd *cobra.Command, args []string) error {
+func runFootage(cmd *cobra.Command, args []string) error {
 	cfg := config.LoadFromCmd(cmd)
-	duration, _ := cmd.Flags().GetInt("duration")
+	duration, _ := cmd.Flags().GetInt("token-duration")
+	startStr, _ := cmd.Flags().GetString("start")
 	cameraArg := args[0]
 
 	// Resolve camera UUID
@@ -41,7 +43,16 @@ func runLive(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Opening live stream for %s...\n", cameraName)
+	if startStr != "" {
+		startMs, err := parseTimestamp(startStr)
+		if err != nil {
+			return fmt.Errorf("invalid start time: %w", err)
+		}
+		fmt.Printf("Opening footage for %s at %s...\n", cameraName,
+			time.UnixMilli(startMs).Format("Jan 2 3:04:05 PM"))
+	} else {
+		fmt.Printf("Opening live view for %s...\n", cameraName)
+	}
 
 	// Start the local server first so we know the port
 	serverURL, _, err := startPlayerServer(cameraUUID, cameraName, cfg, duration)
@@ -49,9 +60,15 @@ func runLive(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("starting player server: %w", err)
 	}
 
+	// Append start time if specified
+	if startStr != "" {
+		startMs, _ := parseTimestamp(startStr)
+		serverURL += fmt.Sprintf("&start=%d", startMs)
+	}
+
 	openInBrowserNewWindow(serverURL)
 
-	fmt.Printf("Live stream opened in browser.\n")
+	fmt.Println("Player opened in browser.")
 	fmt.Println("Press Ctrl+C to stop.")
 
 	// Keep the process alive so the local HTTP server stays running
