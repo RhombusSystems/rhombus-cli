@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const mediaBaseURL = "https://media.rhombussystems.com"
+const mediaBaseURL = "https://mediaapi-v2.rhombussystems.com"
 
 func init() {
 	alertCmd := &cobra.Command{
@@ -309,19 +309,28 @@ func parseTimestamp(s string) (int64, error) {
 	return 0, fmt.Errorf("cannot parse: %s (use epoch ms, 'now', or relative like '5m ago')", s)
 }
 
-func downloadWithAuth(cfg config.Config, url, outputPath string) error {
-	req, err := http.NewRequest("GET", url, nil)
+func downloadWithAuth(cfg config.Config, mediaURL, outputPath string) error {
+	req, err := http.NewRequest("GET", mediaURL, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("x-auth-apikey", cfg.ApiKey)
-	if cfg.IsPartner {
-		req.Header.Set("x-auth-scheme", "partner-api-token")
+
+	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api")
+		} else {
+			req.Header.Set("x-auth-scheme", "api")
+		}
 	} else {
-		req.Header.Set("x-auth-scheme", "api-token")
+		if cfg.IsPartner {
+			req.Header.Set("x-auth-scheme", "partner-api-token")
+		} else {
+			req.Header.Set("x-auth-scheme", "api-token")
+		}
 	}
 
-	httpClient, err := client.GetHTTPClient(cfg)
+	httpClient, err := client.GetMediaHTTPClient(cfg)
 	if err != nil {
 		return err
 	}
