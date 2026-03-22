@@ -66,7 +66,7 @@ func resolvePartnerOrg(cmd *cobra.Command) error {
 		return fmt.Errorf("--partner-org name search requires a partner profile. Use a UUID or run 'rhombus login' with a partner account")
 	}
 
-	result, err := client.APICall(cfg, "/api/partner/getPartnerClientsV2", map[string]any{})
+	result, err := client.APICall(cfg, "/api/partner/getClientsV2", map[string]any{})
 	if err != nil {
 		return fmt.Errorf("fetching partner clients: %w", err)
 	}
