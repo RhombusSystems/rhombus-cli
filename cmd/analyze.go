@@ -72,6 +72,7 @@ func init() {
 	footageCmd.Flags().String("period", "", "Natural language time window (e.g., 'yesterday between 8am and 9am')")
 	footageCmd.Flags().Bool("raw", false, "Output frames + manifest for external analysis")
 	footageCmd.Flags().Bool("fill", false, "Include evenly-spaced fill frames in addition to activity frames")
+	footageCmd.Flags().Bool("include-motion", false, "Include motion seekpoints (default: only human/vehicle/object activity)")
 	footageCmd.Flags().String("output", "", "Output directory for frames (default: temp dir)")
 
 	analyzeCmd.AddCommand(alertCmd)
@@ -198,6 +199,7 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 	cfg := config.LoadFromCmd(cmd)
 	raw, _ := cmd.Flags().GetBool("raw")
 	fill, _ := cmd.Flags().GetBool("fill")
+	includeMotion, _ := cmd.Flags().GetBool("include-motion")
 	outputDir, _ := cmd.Flags().GetString("output")
 	locationName, _ := cmd.Flags().GetString("location")
 	startStr, _ := cmd.Flags().GetString("start")
@@ -285,7 +287,7 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 		os.MkdirAll(camDir, 0755)
 
 		// Get seekpoints for activity-aware frame selection
-		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs)
+		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion)
 
 		// Select frames: prioritize activity, optionally fill remainder evenly
 		frameTimes := selectFrameTimes(startMs, endMs, interval, activityTimes, fill)
@@ -370,16 +372,20 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 
 // ─── Frame Selection ────────────────────────────────────────────────
 
-func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64) []int64 {
+func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64, includeMotion bool) []int64 {
 	startSec := startMs / 1000
 	durationSec := (endMs - startMs) / 1000
 
-	resp, err := client.APICall(cfg, "/api/camera/getFootageSeekpointsV2", map[string]any{
-		"cameraUuid":       cameraUUID,
-		"startTime":        startSec,
-		"duration":         durationSec,
-		"includeAnyMotion": "true",
-	})
+	params := map[string]any{
+		"cameraUuid": cameraUUID,
+		"startTime":  startSec,
+		"duration":   durationSec,
+	}
+	if includeMotion {
+		params["includeAnyMotion"] = "true"
+	}
+
+	resp, err := client.APICall(cfg, "/api/camera/getFootageSeekpointsV2", params)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Seekpoints fetch error: %v\n", err)
 		return nil
