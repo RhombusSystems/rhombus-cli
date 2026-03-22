@@ -50,6 +50,7 @@ in a grid layout. Timestamps are overlaid on each clip.`,
 	stitchCmd.Flags().String("end", "", "End time (epoch ms)")
 	stitchCmd.Flags().String("period", "", "Natural language time window (e.g., 'yesterday between 6am and 7am')")
 	stitchCmd.Flags().Int("buffer", 5, "Seconds of buffer around each event")
+	stitchCmd.Flags().Bool("include-motion", false, "Include motion seekpoints (default: only human/vehicle/object activity)")
 	stitchCmd.Flags().String("output", "", "Output file path (default: auto-generated)")
 	rootCmd.AddCommand(stitchCmd)
 }
@@ -62,6 +63,7 @@ func runStitch(cmd *cobra.Command, args []string) error {
 	endStr, _ := cmd.Flags().GetString("end")
 	periodStr, _ := cmd.Flags().GetString("period")
 	buffer, _ := cmd.Flags().GetInt("buffer")
+	includeMotion, _ := cmd.Flags().GetBool("include-motion")
 	outputPath, _ := cmd.Flags().GetString("output")
 
 	// Check ffmpeg
@@ -176,7 +178,7 @@ func runStitch(cmd *cobra.Command, args []string) error {
 			camName = camUUID
 		}
 
-		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs)
+		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion)
 		if len(activityTimes) == 0 {
 			continue
 		}
