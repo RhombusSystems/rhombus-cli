@@ -316,8 +316,8 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			// Use dash-api hostname for cert-based API auth
-			frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-api.rhombussystems.com", 1)
+			// Use dash-internal hostname for cert-based API auth
+			frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
 
 			if err := downloadWithAuthQuiet(cfg, frameUri, framePath); err != nil {
 				continue
