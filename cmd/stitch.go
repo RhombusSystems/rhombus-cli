@@ -138,8 +138,8 @@ func runStitch(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if t, _ := resp["wanVodMpdUriTemplate"].(string); t != "" {
-			// Use dash-api for cert-based WAN auth
-			vt.wan = strings.Replace(t, ".dash.rhombussystems.com", ".dash-api.rhombussystems.com", 1)
+			// Use dash-internal for cert-based WAN auth
+			vt.wan = strings.Replace(t, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
 		}
 		if vt.lan != "" || vt.wan != "" {
 			vodTemplates[camUUID] = vt
@@ -361,7 +361,7 @@ func downloadVODClipLAN(cfg config.Config, lanTemplate string, startSec, duratio
 	return downloadVODClipFromMPD(httpClient, mpdURL, durationSec, outputPath, setHeaders)
 }
 
-// downloadVODClipWAN downloads a VOD clip via WAN using cert-based auth on dash-api.
+// downloadVODClipWAN downloads a VOD clip via WAN using cert-based auth on dash-internal.
 // WAN templates use {START_TIME}/{DURATION}/vod/file.mpd format.
 func downloadVODClipWAN(cfg config.Config, wanTemplate string, startSec, durationSec int64, outputPath string) error {
 	mpdURL := strings.Replace(wanTemplate, "{START_TIME}", fmt.Sprintf("%d", startSec), 1)
