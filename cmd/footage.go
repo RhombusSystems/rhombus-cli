@@ -63,7 +63,7 @@ func runFootage(cmd *cobra.Command, args []string) error {
 	// Append start time if specified
 	if startStr != "" {
 		startMs, _ := parseTimestamp(startStr)
-		serverURL += fmt.Sprintf("&start=%d", startMs)
+		serverURL += fmt.Sprintf("&t=%d", startMs)
 	}
 
 	openInBrowserNewWindow(serverURL)
