@@ -333,8 +333,8 @@ func openInBrowserImpl(url string, newWindow bool) {
 
 const (
 	apiPlayerAssetsURL = "https://public-bucket-itg.s3.us-west-2.amazonaws.com/rhombus-cli"
-	apiPlayerJSFile    = "index-BtGEYTAQ.js"
-	apiPlayerCSSFile   = "index-CE1zZXB9.css"
+	apiPlayerJSFile    = "index-BoZEqMQJ.js"
+	apiPlayerCSSFile   = "index-DtYPXb26.css"
 )
 
 // ensureApiPlayerAssets downloads the player JS/CSS to ~/.rhombus/player/ if not already cached.
