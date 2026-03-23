@@ -73,6 +73,7 @@ func init() {
 	footageCmd.Flags().Bool("raw", false, "Output frames + manifest for external analysis")
 	footageCmd.Flags().Bool("fill", false, "Include evenly-spaced fill frames in addition to activity frames")
 	footageCmd.Flags().Bool("include-motion", false, "Include motion seekpoints (default: only human/vehicle/object activity)")
+	footageCmd.Flags().Bool("lan", false, "Download frames via LAN (faster, requires local network access to cameras)")
 	footageCmd.Flags().String("output", "", "Output directory for frames (default: temp dir)")
 
 	analyzeCmd.AddCommand(alertCmd)
@@ -200,6 +201,7 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 	raw, _ := cmd.Flags().GetBool("raw")
 	fill, _ := cmd.Flags().GetBool("fill")
 	includeMotion, _ := cmd.Flags().GetBool("include-motion")
+	useLAN, _ := cmd.Flags().GetBool("lan")
 	outputDir, _ := cmd.Flags().GetString("output")
 	locationName, _ := cmd.Flags().GetString("location")
 	startStr, _ := cmd.Flags().GetString("start")
@@ -274,6 +276,38 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 	numFrames := int(windowSec / interval)
 	fmt.Printf("Target: %d frames per camera (every %.0fs)\n", numFrames, interval)
 
+	// LAN mode: get media URIs and federated token
+	var lanTemplates map[string]string
+	var lanFedToken string
+	if useLAN {
+		lanTemplates = make(map[string]string)
+		for _, camUUID := range cameraUUIDs {
+			resp, err := client.APICall(cfg, "/api/camera/getMediaUris", map[string]any{
+				"cameraUuid": camUUID,
+			})
+			if err != nil {
+				continue
+			}
+			if templates, ok := resp["lanVodMpdUrisTemplates"].([]any); ok && len(templates) > 0 {
+				if t, ok := templates[0].(string); ok {
+					lanTemplates[camUUID] = t
+				}
+			}
+		}
+		fedResp, err := client.APICall(cfg, "/api/org/generateFederatedSessionToken", map[string]any{
+			"durationSec": 3600,
+		})
+		if err == nil {
+			lanFedToken, _ = fedResp["federatedSessionToken"].(string)
+		}
+		if lanFedToken != "" {
+			fmt.Printf("LAN mode: %d cameras with LAN access\n", len(lanTemplates))
+		} else {
+			fmt.Println("Warning: couldn't get federated token, falling back to WAN")
+			useLAN = false
+		}
+	}
+
 	var allManifests []AnalysisManifest
 
 	for _, camUUID := range cameraUUIDs {
@@ -300,38 +334,12 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %d frames selected (%d activity, %d fill)\n",
 			len(frameTimes), activityCount, len(frameTimes)-activityCount)
 
-		// Download frames using federated token auth
+		// Download frames
 		var frames []FrameEntry
-		for i, frameMs := range frameTimes {
-			framePath := filepath.Join(camDir, fmt.Sprintf("frame_%03d.jpeg", i+1))
-
-			frameResp, err := client.APICall(cfg, "/api/video/getExactFrameUri", map[string]any{
-				"cameraUuid":  camUUID,
-				"timestampMs": frameMs,
-			})
-			if err != nil {
-				continue
-			}
-
-			frameUri, _ := frameResp["frameUri"].(string)
-			if frameUri == "" {
-				continue
-			}
-
-			// Use dash-internal hostname for cert-based API auth
-			frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
-
-			if err := downloadWithAuthQuiet(cfg, frameUri, framePath); err != nil {
-				continue
-			}
-
-			hasActivity := isActivityFrame(frameMs, activityTimes)
-			frames = append(frames, FrameEntry{
-				TimestampMs: frameMs,
-				Path:        framePath,
-				HasActivity: hasActivity,
-			})
-			fmt.Printf("\r  Frames: %d/%d", len(frames), len(frameTimes))
+		if useLAN && lanTemplates[camUUID] != "" {
+			frames = downloadFramesLAN(cfg, camUUID, camDir, frameTimes, activityTimes, lanTemplates[camUUID], lanFedToken)
+		} else {
+			frames = downloadFramesWAN(cfg, camUUID, camDir, frameTimes, activityTimes)
 		}
 		fmt.Println()
 
@@ -406,6 +414,129 @@ func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64
 	}
 	sort.Slice(times, func(i, j int) bool { return times[i] < times[j] })
 	return times
+}
+
+// downloadFramesWAN downloads frames via getExactFrameUri (WAN/cloud path).
+func downloadFramesWAN(cfg config.Config, camUUID, camDir string, frameTimes, activityTimes []int64) []FrameEntry {
+	var frames []FrameEntry
+	for i, frameMs := range frameTimes {
+		framePath := filepath.Join(camDir, fmt.Sprintf("frame_%03d.jpeg", i+1))
+
+		frameResp, err := client.APICall(cfg, "/api/video/getExactFrameUri", map[string]any{
+			"cameraUuid":  camUUID,
+			"timestampMs": frameMs,
+		})
+		if err != nil {
+			continue
+		}
+
+		frameUri, _ := frameResp["frameUri"].(string)
+		if frameUri == "" {
+			continue
+		}
+
+		frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
+
+		if err := downloadWithAuthQuiet(cfg, frameUri, framePath); err != nil {
+			continue
+		}
+
+		frames = append(frames, FrameEntry{
+			TimestampMs: frameMs,
+			Path:        framePath,
+			HasActivity: isActivityFrame(frameMs, activityTimes),
+		})
+		fmt.Printf("\r  Frames: %d/%d", len(frames), len(frameTimes))
+	}
+	return frames
+}
+
+// downloadFramesLAN downloads frames via LAN by fetching 2s VOD segments and extracting a frame.
+// Each segment is 2 seconds with 1 keyframe, so we download the segment covering each timestamp
+// and use ffmpeg to extract the nearest frame.
+func downloadFramesLAN(cfg config.Config, camUUID, camDir string, frameTimes, activityTimes []int64, lanTemplate, fedToken string) []FrameEntry {
+	httpClient, _ := client.GetMediaHTTPClient(cfg)
+	setHeaders := func(req *http.Request) {
+		req.Header.Set("Cookie", "RHOMBUS_SESSIONID=RFT:"+fedToken)
+		req.Header.Set("x-auth-scheme", "api-token")
+		req.Header.Set("x-auth-apikey", cfg.ApiKey)
+	}
+
+	segDir := filepath.Join(camDir, "segments")
+	os.MkdirAll(segDir, 0755)
+	defer os.RemoveAll(segDir)
+
+	// Cache downloaded segments to avoid re-downloading the same 2s segment
+	segCache := make(map[int64]string) // startSec → segment file path
+
+	var frames []FrameEntry
+	for i, frameMs := range frameTimes {
+		framePath := filepath.Join(camDir, fmt.Sprintf("frame_%03d.jpeg", i+1))
+
+		// Determine which 2s segment contains this frame
+		frameSec := frameMs / 1000
+		segStartSec := (frameSec / 2) * 2 // align to 2s boundary
+		offsetSec := frameSec - segStartSec
+
+		// Download segment if not cached
+		segPath, ok := segCache[segStartSec]
+		if !ok {
+			segPath = filepath.Join(segDir, fmt.Sprintf("seg_%d.mp4", segStartSec))
+
+			// Build LAN VOD URL for this 2s segment
+			mpdURL := strings.Replace(lanTemplate, "{START_TIME}", fmt.Sprintf("%d", segStartSec), 1)
+			mpdURL = strings.Replace(mpdURL, "{DURATION}", "2", 1)
+			baseURL := mpdURL[:strings.LastIndex(mpdURL, "/")+1]
+
+			// Download init + single segment, concatenate
+			initPath := filepath.Join(segDir, fmt.Sprintf("init_%d.mp4", segStartSec))
+			seg1Path := filepath.Join(segDir, fmt.Sprintf("data_%d.m4v", segStartSec))
+
+			err1 := downloadDashSegment(httpClient, baseURL+"seg_init.mp4", initPath, setHeaders)
+			err2 := downloadDashSegment(httpClient, baseURL+"seg_1.m4v", seg1Path, setHeaders)
+			if err1 != nil || err2 != nil {
+				continue
+			}
+
+			// Concatenate init + segment
+			f, err := os.Create(segPath)
+			if err != nil {
+				continue
+			}
+			initData, _ := os.ReadFile(initPath)
+			segData, _ := os.ReadFile(seg1Path)
+			f.Write(initData)
+			f.Write(segData)
+			f.Close()
+
+			// Clean up intermediate files
+			os.Remove(initPath)
+			os.Remove(seg1Path)
+
+			segCache[segStartSec] = segPath
+		}
+
+		// Extract frame from segment using ffmpeg
+		extractCmd := exec.Command("ffmpeg",
+			"-i", segPath,
+			"-ss", fmt.Sprintf("%d", offsetSec),
+			"-frames:v", "1",
+			"-q:v", "3",
+			"-update", "1",
+			framePath, "-y")
+		extractCmd.Stderr = nil
+		if err := extractCmd.Run(); err != nil {
+			continue
+		}
+
+		frames = append(frames, FrameEntry{
+			TimestampMs: frameMs,
+			Path:        framePath,
+			HasActivity: isActivityFrame(frameMs, activityTimes),
+		})
+		fmt.Printf("\r  Frames: %d/%d", len(frames), len(frameTimes))
+	}
+	return frames
 }
 
 // selectFrameTimes picks frames in two passes:
