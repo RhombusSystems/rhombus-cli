@@ -8,3 +8,22 @@ dist/
 # IDE
 .idea/
 .vscode/
+
+# Media / footage
+*.mp4
+*.avi
+*.mov
+*.jpeg
+*.jpg
+*.png
+
+# Secrets / credentials
+*.env*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Test artifacts
+test-results/
