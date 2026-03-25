@@ -20,6 +20,7 @@ const (
 
 type Config struct {
 	ApiKey      string
+	WSApiKey    string // token-based API key for websocket (cert keys don't work with WS service)
 	EndpointURL string
 	Output      string
 	Profile     string
@@ -75,6 +76,9 @@ func LoadConfig(profile string) Config {
 		if s, err := f.GetSection(section); err == nil {
 			if k, err := s.GetKey("api_key"); err == nil {
 				cfg.ApiKey = k.String()
+			}
+			if k, err := s.GetKey("ws_api_key"); err == nil {
+				cfg.WSApiKey = k.String()
 			}
 			if k, err := s.GetKey("auth_type"); err == nil {
 				cfg.AuthType = k.String()
@@ -199,6 +203,12 @@ func boolStr(b bool) string {
 func SaveRefreshToken(profile, refreshToken string) error {
 	return saveCredentialFields(profile, map[string]string{
 		"refresh_token": refreshToken,
+	})
+}
+
+func SaveField(profile, key, value string) error {
+	return saveCredentialFields(profile, map[string]string{
+		key: value,
 	})
 }
 

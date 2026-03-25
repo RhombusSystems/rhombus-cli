@@ -115,13 +115,19 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		cfg := config.LoadConfig(profile)
 		isPartner := result.isPartner
 
-		// Try cert-based auth first, fall back to token-based
+		// Create cert-based API key (primary), fall back to token-based
 		_, err = createApiKey(cfg.EndpointURL, oauthAccessToken, profile, isPartner, true)
 		if err != nil {
 			_, err = createApiKey(cfg.EndpointURL, oauthAccessToken, profile, isPartner, false)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to create API key: %w", err)
+		}
+
+		// Also create a token-based API key for services that don't support cert auth (e.g. WebSocket)
+		tokenKey, tokenErr := createTokenOnlyApiKey(cfg.EndpointURL, oauthAccessToken, profile, isPartner)
+		if tokenErr == nil && tokenKey != "" {
+			config.SaveField(profile, "ws_api_key", tokenKey)
 		}
 
 		if isPartner {
@@ -375,6 +381,61 @@ func createApiKey(endpointURL, oauthAccessToken, profile string, partner, useCer
 		if err := config.SaveTokenCredentials(profile, result.ApiKey, partner); err != nil {
 			return "", fmt.Errorf("saving credentials: %w", err)
 		}
+	}
+
+	return result.ApiKey, nil
+}
+
+// createTokenOnlyApiKey creates a token-based API key for services that don't support cert auth.
+func createTokenOnlyApiKey(endpointURL, oauthAccessToken, profile string, partner bool) (string, error) {
+	endpoint := "/api/integrations/org/submitApiTokenApplication"
+	if partner {
+		endpoint = "/api/partner/submitApiTokenApplication"
+	}
+
+	reqBody := map[string]string{
+		"displayName": "Rhombus CLI (WebSocket)",
+		"authType":    "API_TOKEN",
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", endpointURL+endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if partner {
+		req.Header.Set("x-auth-scheme", "partner-api-oauth-token")
+	} else {
+		req.Header.Set("x-auth-scheme", "api-oauth-token")
+	}
+	req.Header.Set("x-auth-access-token", oauthAccessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		ApiKey   string `json:"apiKey"`
+		Error    bool   `json:"error"`
+		ErrorMsg string `json:"errorMsg"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", err
+	}
+	if result.Error {
+		return "", fmt.Errorf("%s", result.ErrorMsg)
 	}
 
 	return result.ApiKey, nil
