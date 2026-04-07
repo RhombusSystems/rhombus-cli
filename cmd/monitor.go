@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,6 +36,14 @@ func init() {
 	}
 	monitorCmd.Flags().Bool("all-events", false, "Show all change events, not just alerts")
 	monitorCmd.Flags().Bool("json", false, "Output raw JSON payloads")
+	monitorCmd.Flags().Bool("download", false, "Auto-download thumbnail and clip for each alert")
+	monitorCmd.Flags().String("output-dir", "", "Directory for downloaded alert media (default: ~/.rhombus/alerts/)")
+	monitorCmd.Flags().Bool("ai-summary", false, "Generate AI-powered summary of each alert (implies --download)")
+	monitorCmd.Flags().String("anthropic-api-key", "", "Anthropic API key (default: $ANTHROPIC_API_KEY)")
+	monitorCmd.Flags().String("on-alert", "", "Shell command to run on each alert (receives JSON on stdin)")
+	monitorCmd.Flags().String("webhook", "", "URL to POST alert JSON to on each alert")
+	monitorCmd.Flags().Duration("summary-interval", 0, "Aggregation interval for periodic summary (e.g. 5m)")
+	monitorCmd.Flags().Bool("ai-aggregate-summary", false, "Use AI for periodic aggregate summary")
 	rootCmd.AddCommand(monitorCmd)
 }
 
@@ -43,6 +52,11 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	allEvents, _ := cmd.Flags().GetBool("all-events")
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 
+	opts, err := parseMonitorOpts(cmd)
+	if err != nil {
+		return err
+	}
+
 	orgUuid, err := getOrgUuid(cfg)
 	if err != nil {
 		return fmt.Errorf("fetching org info: %w", err)
@@ -50,7 +64,37 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 
 	cameraNames := getCameraNameMap(cfg)
 
+	// Context for clean shutdown of action goroutines
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start aggregator if configured
+	var agg *alertAggregator
+	if opts.SummaryInterval > 0 {
+		agg = newAlertAggregator(opts.SummaryInterval, opts)
+		go agg.run()
+	}
+
 	fmt.Fprintf(os.Stderr, "Connecting to Rhombus WebSocket...\n")
+	if opts.hasActions() {
+		fmt.Fprintf(os.Stderr, "Actions enabled:")
+		if opts.Download {
+			fmt.Fprintf(os.Stderr, " download")
+		}
+		if opts.AISummary {
+			fmt.Fprintf(os.Stderr, " ai-summary")
+		}
+		if opts.OnAlert != "" {
+			fmt.Fprintf(os.Stderr, " on-alert")
+		}
+		if opts.WebhookURL != "" {
+			fmt.Fprintf(os.Stderr, " webhook")
+		}
+		if opts.SummaryInterval > 0 {
+			fmt.Fprintf(os.Stderr, " summary(%s)", opts.SummaryInterval)
+		}
+		fmt.Fprintln(os.Stderr)
+	}
 
 	// Handle Ctrl+C
 	sigCh := make(chan os.Signal, 1)
@@ -61,6 +105,10 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 
 	var conn *websocket.Conn
 	defer func() {
+		cancel()
+		if agg != nil {
+			agg.stop()
+		}
 		if conn != nil {
 			sendStompFrame(conn, "DISCONNECT", map[string]string{}, "")
 			conn.Close()
@@ -86,7 +134,7 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Connected. Monitoring for alerts on org %s...\n", orgUuid)
 		fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop.\n\n")
 
-		disconnected := handleMessages(conn, cfg, cameraNames, allEvents, jsonOutput, sigCh)
+		disconnected := handleMessages(conn, cfg, cameraNames, allEvents, jsonOutput, sigCh, ctx, opts, agg)
 		conn.Close()
 		conn = nil
 
@@ -216,7 +264,7 @@ func connectAndSubscribe(wsURL string, headers http.Header, topic string) (*webs
 
 // handleMessages reads from the websocket and displays alerts.
 // Returns true if disconnected unexpectedly (should reconnect), false if user cancelled.
-func handleMessages(conn *websocket.Conn, cfg config.Config, cameraNames map[string]string, allEvents, jsonOutput bool, sigCh chan os.Signal) bool {
+func handleMessages(conn *websocket.Conn, cfg config.Config, cameraNames map[string]string, allEvents, jsonOutput bool, sigCh chan os.Signal, ctx context.Context, opts monitorOpts, agg *alertAggregator) bool {
 	msgCh := make(chan stompFrame, 16)
 	errCh := make(chan error, 1)
 
@@ -265,67 +313,98 @@ func handleMessages(conn *websocket.Conn, cfg config.Config, cameraNames map[str
 			_ = err
 			return true
 		case frame := <-msgCh:
-			displayChangeEvent(frame, cfg, cameraNames, allEvents, jsonOutput)
+			alert := displayChangeEvent(frame, cfg, cameraNames, allEvents, jsonOutput)
+			if alert != nil && opts.hasActions() {
+				go processAlert(ctx, cfg, cameraNames, opts, agg, alert)
+			}
 		}
 	}
 }
 
-func displayChangeEvent(frame stompFrame, cfg config.Config, cameraNames map[string]string, allEvents, jsonOutput bool) {
+// displayChangeEvent displays the event and returns a fetchedAlert if it's a POLICY_ALERT
+// with successfully retrieved details (for use by the action pipeline).
+func displayChangeEvent(frame stompFrame, cfg config.Config, cameraNames map[string]string, allEvents, jsonOutput bool) *fetchedAlert {
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(frame.body), &payload); err != nil {
-		return
+		return nil
 	}
 
 	entity, _ := payload["entity"].(string)
 	entityUuid, _ := payload["entityUuid"].(string)
 	changeType, _ := payload["type"].(string)
 
+	// The change event nests alert data under "update" — extract UUID from there if needed
+	update, _ := payload["update"].(map[string]any)
+	if entityUuid == "" && update != nil {
+		entityUuid, _ = update["uuid"].(string)
+	}
+
 	if !allEvents && entity != "POLICY_ALERT" {
-		return
+		return nil
 	}
 
 	if jsonOutput {
 		prettyJSON, _ := json.MarshalIndent(payload, "", "  ")
 		fmt.Println(string(prettyJSON))
-		return
+		// Still try to return alert data for actions
+		if entity == "POLICY_ALERT" && changeType != "DELETE" && entityUuid != "" {
+			alert, err := getAlertDetails(cfg, entityUuid)
+			if err == nil {
+				return &fetchedAlert{UUID: entityUuid, Alert: alert}
+			}
+		}
+		return nil
 	}
 
 	now := time.Now().Format("15:04:05")
 
 	if entity == "POLICY_ALERT" {
-		displayPolicyAlert(now, entityUuid, changeType, cfg, cameraNames)
-	} else {
-		// Generic event display for --all-events
-		deviceUuid, _ := payload["deviceUuid"].(string)
-		camName := ""
-		if deviceUuid != "" {
-			camName = cameraNames[deviceUuid]
-			if camName == "" {
-				camName = deviceUuid
-			}
-		}
-		fmt.Printf("[%s] %s %s", now, changeType, entity)
-		if camName != "" {
-			fmt.Printf("  device=%s", camName)
-		}
-		if entityUuid != "" {
-			fmt.Printf("  uuid=%s", entityUuid)
-		}
-		fmt.Println()
+		return displayPolicyAlert(now, entityUuid, changeType, cfg, cameraNames, update)
 	}
+
+	// Generic event display for --all-events
+	deviceUuid, _ := payload["deviceUuid"].(string)
+	camName := ""
+	if deviceUuid != "" {
+		camName = cameraNames[deviceUuid]
+		if camName == "" {
+			camName = deviceUuid
+		}
+	}
+	fmt.Printf("[%s] %s %s", now, changeType, entity)
+	if camName != "" {
+		fmt.Printf("  device=%s", camName)
+	}
+	if entityUuid != "" {
+		fmt.Printf("  uuid=%s", entityUuid)
+	}
+	fmt.Println()
+	return nil
 }
 
-func displayPolicyAlert(timestamp, alertUuid, changeType string, cfg config.Config, cameraNames map[string]string) {
+// fetchedAlert holds alert details already retrieved from the API.
+type fetchedAlert struct {
+	UUID  string
+	Alert map[string]any
+}
+
+// displayPolicyAlert shows the alert and returns the fetched data for the action pipeline.
+// The update map comes from the change event's "update" field and may already contain all alert data.
+func displayPolicyAlert(timestamp, alertUuid, changeType string, cfg config.Config, cameraNames map[string]string, update map[string]any) *fetchedAlert {
 	if changeType == "DELETE" {
 		fmt.Printf("[%s] ALERT CLEARED  uuid=%s\n", timestamp, alertUuid)
-		return
+		return nil
 	}
 
-	// Fetch alert details for a richer display
-	alert, err := getAlertDetails(cfg, alertUuid)
-	if err != nil {
-		fmt.Printf("[%s] ALERT %s  uuid=%s\n", timestamp, changeType, alertUuid)
-		return
+	// Use the inline update data if available; fall back to API call
+	alert := update
+	if alert == nil || alert["timestampMs"] == nil {
+		var err error
+		alert, err = getAlertDetails(cfg, alertUuid)
+		if err != nil {
+			fmt.Printf("[%s] ALERT %s  uuid=%s  (details unavailable: %v)\n", timestamp, changeType, alertUuid, err)
+			return nil
+		}
 	}
 
 	deviceUuid, _ := alert["deviceUuid"].(string)
@@ -358,6 +437,8 @@ func displayPolicyAlert(timestamp, alertUuid, changeType string, cfg config.Conf
 		fmt.Printf("\n         %s", description)
 	}
 	fmt.Printf("\n         uuid=%s\n", alertUuid)
+
+	return &fetchedAlert{UUID: alertUuid, Alert: alert}
 }
 
 // STOMP protocol helpers

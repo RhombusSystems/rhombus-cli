@@ -29,6 +29,7 @@ type Config struct {
 	KeyFile     string // path to client private key PEM
 	IsPartner   bool   // whether this is a partner-level credential
 	PartnerOrg  string // client org UUID for partner emulation (set via --partner-org flag)
+	Verbose     bool   // print full HTTP request and response details
 }
 
 func configDir() string {
@@ -132,6 +133,9 @@ func LoadFromCmd(cmd *cobra.Command) Config {
 	}
 	if v, _ := cmd.Root().PersistentFlags().GetString("partner-org"); v != "" {
 		cfg.PartnerOrg = v
+	}
+	if v, _ := cmd.Root().PersistentFlags().GetBool("verbose"); v {
+		cfg.Verbose = true
 	}
 
 	return cfg

@@ -68,6 +68,21 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 		client = http.DefaultClient
 	}
 
+	if cfg.Verbose {
+		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL)
+		for k, vals := range req.Header {
+			for _, v := range vals {
+				if k == "X-Auth-Apikey" {
+					if len(v) > 4 {
+						v = "****" + v[len(v)-4:]
+					}
+				}
+				fmt.Fprintf(os.Stderr, "> %s: %s\n", k, v)
+			}
+		}
+		fmt.Fprintf(os.Stderr, ">\n> %s\n>\n", string(jsonBody))
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -77,6 +92,16 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if cfg.Verbose {
+		fmt.Fprintf(os.Stderr, "< HTTP %s\n", resp.Status)
+		for k, vals := range resp.Header {
+			for _, v := range vals {
+				fmt.Fprintf(os.Stderr, "< %s: %s\n", k, v)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "<\n< %s\n<\n", string(respBody))
 	}
 
 	if resp.StatusCode != http.StatusOK {
