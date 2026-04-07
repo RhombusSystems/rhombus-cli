@@ -24,8 +24,10 @@ type ParamMeta struct {
 func CollectFlags(cmd *cobra.Command) map[string]string {
 	flags := make(map[string]string)
 	cmd.Flags().Visit(func(f *pflag.Flag) {
-		// Skip meta-flags
-		if f.Name == "cli-input-json" || f.Name == "generate-cli-skeleton" {
+		// Skip meta-flags and root persistent flags
+		switch f.Name {
+		case "cli-input-json", "generate-cli-skeleton",
+			"profile", "output", "api-key", "endpoint-url", "partner-org", "verbose":
 			return
 		}
 		flags[f.Name] = f.Value.String()
