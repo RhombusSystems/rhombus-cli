@@ -49,6 +49,7 @@ func RegisterAll(root *cobra.Command) {
 	root.AddCommand(NewPolicyCmd())
 	root.AddCommand(NewProximityCmd())
 	root.AddCommand(NewRapidSOSCmd())
+	root.AddCommand(NewRelayCmd())
 	root.AddCommand(NewReportCmd())
 	root.AddCommand(NewRulesCmd())
 	root.AddCommand(NewRulesRecordsCmd())

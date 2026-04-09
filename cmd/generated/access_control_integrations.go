@@ -17,6 +17,7 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 
 	cmd.AddCommand(newDeleteAmtIntegrationCmd())
 	cmd.AddCommand(newDeleteAvigilonAltaIntegrationV2Cmd())
+	cmd.AddCommand(newDeleteBoulevardIntegrationCmd())
 	cmd.AddCommand(newDeleteBrivoIntegrationCmd())
 	cmd.AddCommand(newDeleteBrivoIntegrationV2Cmd())
 	cmd.AddCommand(newDeleteButterflymxIntegrationCmd())
@@ -35,6 +36,7 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newDeletePlaceOsIntegrationV2Cmd())
 	cmd.AddCommand(newGetAmtReadersCmd())
 	cmd.AddCommand(newGetAvigilonAltaIntegrationCmd())
+	cmd.AddCommand(newGetBoulevardIntegrationCmd())
 	cmd.AddCommand(newGetBrivoDoorsCmd())
 	cmd.AddCommand(newGetBrivoDoorsV2Cmd())
 	cmd.AddCommand(newGetBrivoDoorsV3Cmd())
@@ -61,6 +63,7 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetPlaceOsDoorsCmd())
 	cmd.AddCommand(newGetPlaceOsIntegrationV2Cmd())
 	cmd.AddCommand(newRevertOpenpathLockdownCmd())
+	cmd.AddCommand(newTestBoulevardConnectionCmd())
 	cmd.AddCommand(newTriggerOpenpathLockdownCmd())
 	cmd.AddCommand(newUnlockBrivoDoorCmd())
 	cmd.AddCommand(newUnlockBrivoDoorV2Cmd())
@@ -74,6 +77,7 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newUnlockPlaceOsDoorCmd())
 	cmd.AddCommand(newUpdateAmtIntegrationCmd())
 	cmd.AddCommand(newUpdateAvigilonAltaIntegrationV2Cmd())
+	cmd.AddCommand(newUpdateBoulevardIntegrationCmd())
 	cmd.AddCommand(newUpdateBrivoIntegrationCmd())
 	cmd.AddCommand(newUpdateBrivoIntegrationV2Cmd())
 	cmd.AddCommand(newUpdateButterflymxIntegrationCmd())
@@ -140,6 +144,35 @@ func newDeleteAvigilonAltaIntegrationV2Cmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/integrations/accessControl/deleteAvigilonAltaIntegrationV2", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteBoulevardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-boulevard-integration",
+		Short: "Delete Boulevard integration",
+		Long:  "Delete Boulevard integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/deleteBoulevardIntegration", body)
 			if err != nil {
 				return err
 			}
@@ -667,6 +700,35 @@ func newGetAvigilonAltaIntegrationCmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/integrations/accessControl/getAvigilonAltaIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetBoulevardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-boulevard-integration",
+		Short: "Get Boulevard integration",
+		Long:  "Get Boulevard integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getBoulevardIntegration", body)
 			if err != nil {
 				return err
 			}
@@ -1487,6 +1549,40 @@ func newRevertOpenpathLockdownCmd() *cobra.Command {
 	return cmd
 }
 
+func newTestBoulevardConnectionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "test-boulevard-connection",
+		Short: "Test Boulevard API connection",
+		Long:  "Test Boulevard API connection with provided credentials",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "apiToken", FlagName: "api-token", Type: "string", Required: false, Example: nil},
+					{Name: "boulevardBusinessId", FlagName: "boulevard-business-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/testBoulevardConnection", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("api-token", "", "Boulevard API token to test")
+	cmd.Flags().String("boulevard-business-id", "", "Boulevard business ID to test")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newTriggerOpenpathLockdownCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trigger-openpath-lockdown",
@@ -1922,6 +2018,48 @@ func newUpdateAvigilonAltaIntegrationV2Cmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("avigilon-alta-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateBoulevardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-boulevard-integration",
+		Short: "Update Boulevard integration",
+		Long:  "Update Boulevard integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "accessWindowAfterMinutes", FlagName: "access-window-after-minutes", Type: "integer", Required: false, Example: nil},
+					{Name: "accessWindowBeforeMinutes", FlagName: "access-window-before-minutes", Type: "integer", Required: false, Example: nil},
+					{Name: "apiToken", FlagName: "api-token", Type: "string", Required: false, Example: nil},
+					{Name: "boulevardBusinessId", FlagName: "boulevard-business-id", Type: "string", Required: false, Example: nil},
+					{Name: "boulevardLocationToRhombusLocationMap", FlagName: "boulevard-location-to-rhombus-location-map", Type: "object", Required: false, Example: nil},
+					{Name: "enabled", FlagName: "enabled", Type: "boolean", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/updateBoulevardIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("access-window-after-minutes", "", "Number of minutes after appointment to allow access")
+	cmd.Flags().String("access-window-before-minutes", "", "Number of minutes before appointment to allow access")
+	cmd.Flags().String("api-token", "", "Boulevard API token")
+	cmd.Flags().String("boulevard-business-id", "", "Boulevard business ID")
+	cmd.Flags().String("boulevard-location-to-rhombus-location-map", "", "Mapping of Boulevard location IDs to Rhombus location UUIDs")
+	cmd.Flags().String("enabled", "", "Whether the Boulevard integration is enabled")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
