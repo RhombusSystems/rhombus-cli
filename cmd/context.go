@@ -467,7 +467,7 @@ func runContextCamera(cmd *cobra.Command, args []string) error {
 
 	// Recent activity summary
 	nowMs := time.Now().UnixMilli()
-	activity := getActivityTimes(cfg, camUUID, nowMs-3600*1000, nowMs, false)
+	activity := getActivityTimes(cfg, camUUID, nowMs-3600*1000, nowMs, false, nil)
 	fmt.Printf("\nActivity (last hour): %d events\n", len(activity))
 
 	return nil

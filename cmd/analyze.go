@@ -321,7 +321,7 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 		os.MkdirAll(camDir, 0755)
 
 		// Get seekpoints for activity-aware frame selection
-		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion)
+		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion, nil)
 
 		// Select frames: prioritize activity, optionally fill remainder evenly
 		frameTimes := selectFrameTimes(startMs, endMs, interval, activityTimes, fill)
@@ -380,7 +380,35 @@ func runAnalyzeFootage(cmd *cobra.Command, args []string) error {
 
 // ─── Frame Selection ────────────────────────────────────────────────
 
-func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64, includeMotion bool) []int64 {
+// activityAliases maps user-friendly names to ActivityEnum values.
+var activityAliases = map[string]string{
+	"human":        "MOTION_HUMAN",
+	"vehicle":      "MOTION_CAR",
+	"car":          "MOTION_CAR",
+	"animal":       "MOTION_ANIMAL",
+	"face":         "FACE",
+	"licenseplate": "LICENSEPLATE",
+	"motion":       "MOTION",
+	"tamper":       "TAMPER",
+	"sound":        "SOUND_LOUD",
+	"gunshot":      "SOUND_GUN_SHOT",
+}
+
+// resolveActivityTypes converts user-friendly names to ActivityEnum values.
+// Unrecognized values are passed through as-is (assumed to be raw enum values).
+func resolveActivityTypes(types []string) []string {
+	var resolved []string
+	for _, t := range types {
+		if mapped, ok := activityAliases[strings.ToLower(strings.TrimSpace(t))]; ok {
+			resolved = append(resolved, mapped)
+		} else {
+			resolved = append(resolved, strings.TrimSpace(t))
+		}
+	}
+	return resolved
+}
+
+func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64, includeMotion bool, activityTypes []string) []int64 {
 	startSec := startMs / 1000
 	durationSec := (endMs - startMs) / 1000
 
@@ -389,7 +417,7 @@ func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64
 		"startTime":  startSec,
 		"duration":   durationSec,
 	}
-	if includeMotion {
+	if includeMotion || len(activityTypes) > 0 {
 		params["includeAnyMotion"] = "true"
 	}
 
@@ -401,11 +429,25 @@ func getActivityTimes(cfg config.Config, cameraUUID string, startMs, endMs int64
 
 	seekpoints, _ := resp["footageSeekPoints"].([]any)
 	fmt.Fprintf(os.Stderr, "  Seekpoints found: %d\n", len(seekpoints))
+
+	// Build filter set
+	filterSet := make(map[string]bool, len(activityTypes))
+	for _, at := range activityTypes {
+		filterSet[at] = true
+	}
+
 	var times []int64
 	for _, sp := range seekpoints {
 		s, ok := sp.(map[string]any)
 		if !ok {
 			continue
+		}
+		// Filter by activity type if specified
+		if len(filterSet) > 0 {
+			activity, _ := s["a"].(string)
+			if !filterSet[activity] {
+				continue
+			}
 		}
 		ts, _ := s["ts"].(float64)
 		if ts > 0 {

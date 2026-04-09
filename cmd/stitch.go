@@ -51,6 +51,7 @@ in a grid layout. Timestamps are overlaid on each clip.`,
 	stitchCmd.Flags().String("period", "", "Natural language time window (e.g., 'yesterday between 6am and 7am')")
 	stitchCmd.Flags().Int("buffer", 5, "Seconds of buffer around each event")
 	stitchCmd.Flags().Bool("include-motion", false, "Include motion seekpoints (default: only human/vehicle/object activity)")
+	stitchCmd.Flags().StringSlice("activity", nil, "Filter by activity type (Human, Vehicle, Animal, Face, LicensePlate, Motion, or raw enum)")
 	stitchCmd.Flags().String("output", "", "Output file path (default: auto-generated)")
 	rootCmd.AddCommand(stitchCmd)
 }
@@ -64,7 +65,11 @@ func runStitch(cmd *cobra.Command, args []string) error {
 	periodStr, _ := cmd.Flags().GetString("period")
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	includeMotion, _ := cmd.Flags().GetBool("include-motion")
+	activityFilter, _ := cmd.Flags().GetStringSlice("activity")
 	outputPath, _ := cmd.Flags().GetString("output")
+
+	// Resolve user-friendly activity type names to enum values
+	activityTypes := resolveActivityTypes(activityFilter)
 
 	// Check ffmpeg
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
@@ -178,7 +183,7 @@ func runStitch(cmd *cobra.Command, args []string) error {
 			camName = camUUID
 		}
 
-		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion)
+		activityTimes := getActivityTimes(cfg, camUUID, startMs, endMs, includeMotion, activityTypes)
 		if len(activityTimes) == 0 {
 			continue
 		}
