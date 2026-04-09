@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -380,23 +381,56 @@ func parseTimestamp(s string) (int64, error) {
 	if ms, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return ms, nil
 	}
-	s = strings.TrimSuffix(s, " ago")
-	s = strings.TrimSpace(s)
-	for _, suffix := range []struct{ s string; d time.Duration }{
+
+	lower := strings.ToLower(s)
+
+	// Relative: "5m ago", "2h ago", "3d ago"
+	trimmed := strings.TrimSuffix(lower, " ago")
+	trimmed = strings.TrimSpace(trimmed)
+	for _, suffix := range []struct {
+		s string
+		d time.Duration
+	}{
 		{"s", time.Second}, {"m", time.Minute}, {"h", time.Hour},
 	} {
-		if strings.HasSuffix(s, suffix.s) {
-			if n, err := strconv.Atoi(strings.TrimSuffix(s, suffix.s)); err == nil {
+		if strings.HasSuffix(trimmed, suffix.s) {
+			if n, err := strconv.Atoi(strings.TrimSuffix(trimmed, suffix.s)); err == nil {
 				return time.Now().Add(-time.Duration(n) * suffix.d).UnixMilli(), nil
 			}
 		}
 	}
-	if strings.HasSuffix(s, "d") {
-		if n, err := strconv.Atoi(strings.TrimSuffix(s, "d")); err == nil {
+	if strings.HasSuffix(trimmed, "d") {
+		if n, err := strconv.Atoi(strings.TrimSuffix(trimmed, "d")); err == nil {
 			return time.Now().Add(-time.Duration(n) * 24 * time.Hour).UnixMilli(), nil
 		}
 	}
-	return 0, fmt.Errorf("cannot parse: %s (use epoch ms, 'now', or relative like '5m ago')", s)
+
+	// Absolute: "6am today", "8pm yesterday", "3:30pm friday", "6am", etc.
+	now := time.Now()
+	absRe := regexp.MustCompile(`^(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*(.*)$`)
+	if m := absRe.FindStringSubmatch(lower); m != nil {
+		tod := parseTimeOfDay(m[1])
+		dayStr := strings.TrimSpace(m[2])
+		var day time.Time
+		if dayStr == "" || dayStr == "today" {
+			day = now
+		} else {
+			day = resolveDay(dayStr, now)
+		}
+		t := time.Date(day.Year(), day.Month(), day.Day(), tod.hour, tod.min, 0, 0, now.Location())
+		return t.UnixMilli(), nil
+	}
+
+	// Day-first: "today 6am", "yesterday 8pm", "friday 3:30pm"
+	dayFirstRe := regexp.MustCompile(`^(today|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))$`)
+	if m := dayFirstRe.FindStringSubmatch(lower); m != nil {
+		day := resolveDay(m[1], now)
+		tod := parseTimeOfDay(m[2])
+		t := time.Date(day.Year(), day.Month(), day.Day(), tod.hour, tod.min, 0, 0, now.Location())
+		return t.UnixMilli(), nil
+	}
+
+	return 0, fmt.Errorf("cannot parse: %s (use epoch ms, 'now', relative like '5m ago', or absolute like '6am today')", s)
 }
 
 func downloadWithAuth(cfg config.Config, mediaURL, outputPath string) error {
