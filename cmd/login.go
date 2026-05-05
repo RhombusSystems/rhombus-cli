@@ -28,8 +28,6 @@ import (
 const (
 	oauthClientID     = "PJjjlcKAQPCzIcaeprzEVg"
 	oauthClientSecret = "kixFP1l8c55dDt0WdeX8BNwUlnFknGTr9qdn3AYKpsM"
-	authBaseURL       = "https://auth.rhombussystems.com"
-	consoleBaseURL    = "https://console.rhombussystems.com"
 	callbackPort      = 11434
 	callbackRedirect  = "http://localhost:11434/callback"
 )
@@ -50,6 +48,13 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	if profile == "" {
 		profile = config.DefaultProfile
 	}
+
+	// Resolve region from the profile's configured endpoint so EU customers
+	// are sent to the EU auth/console hosts.
+	cfg := config.LoadConfig(profile)
+	region := config.RegionForEndpoint(cfg.EndpointURL)
+	authBaseURL := config.AuthBaseURLForRegion(region)
+	consoleBaseURL := config.ConsoleBaseURLForRegion(region)
 
 	// Generate PKCE code verifier and challenge
 	codeVerifier, err := generateCodeVerifier()
@@ -75,7 +80,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	redirectURI := callbackRedirect
 
 	// Build authorization URL
-	authURL := buildAuthorizeURL(redirectURI, state, codeChallenge)
+	authURL := buildAuthorizeURL(consoleBaseURL, redirectURI, state, codeChallenge)
 
 	fmt.Println("Opening browser to log in to Rhombus...")
 	fmt.Println()
@@ -102,7 +107,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			oauthAccessToken = result.accessToken
 		} else if result.code != "" {
 			fmt.Println("Exchanging authorization code for token...")
-			token, err := exchangeCodeForToken(result.code, redirectURI, codeVerifier)
+			token, err := exchangeCodeForToken(authBaseURL, result.code, redirectURI, codeVerifier)
 			if err != nil {
 				return fmt.Errorf("token exchange failed: %w", err)
 			}
@@ -112,7 +117,6 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		}
 
 		// Use the OAuth token to create a permanent API key
-		cfg := config.LoadConfig(profile)
 		isPartner := result.isPartner
 
 		// Create cert-based API key (primary), fall back to token-based
@@ -168,7 +172,7 @@ type tokenResponse struct {
 	ErrorMsg                 string `json:"errorMsg"`
 }
 
-func buildAuthorizeURL(redirectURI, state, codeChallenge string) string {
+func buildAuthorizeURL(consoleBaseURL, redirectURI, state, codeChallenge string) string {
 	params := url.Values{
 		"type":      {"oauth"},
 		"client_id": {oauthClientID},
@@ -215,7 +219,7 @@ func startCallbackServer(result chan<- callbackData) (net.Listener, error) {
 	return listener, nil
 }
 
-func exchangeCodeForToken(code, redirectURI, codeVerifier string) (*tokenResponse, error) {
+func exchangeCodeForToken(authBaseURL, code, redirectURI, codeVerifier string) (*tokenResponse, error) {
 	reqBody := map[string]string{
 		"grantType":         "AUTHORIZATION_CODE",
 		"authorizationCode": code,

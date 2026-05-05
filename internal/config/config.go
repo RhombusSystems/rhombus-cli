@@ -11,12 +11,60 @@ import (
 
 const (
 	DefaultEndpointURL = "https://api2.rhombussystems.com"
+	EUEndpointURL      = "https://api2.eu.rhombussystems.com"
 	DefaultOutput      = "json"
 	DefaultProfile     = "default"
 
 	AuthTypeToken = "token"
 	AuthTypeCert  = "cert"
+
+	RegionUS = "us"
+	RegionEU = "eu"
 )
+
+// EndpointForRegion returns the API endpoint URL for the given region.
+// Unknown regions fall back to the US endpoint.
+func EndpointForRegion(region string) string {
+	switch region {
+	case RegionEU:
+		return EUEndpointURL
+	default:
+		return DefaultEndpointURL
+	}
+}
+
+// AuthBaseURLForRegion returns the OAuth/auth service base URL for the given region.
+func AuthBaseURLForRegion(region string) string {
+	switch region {
+	case RegionEU:
+		return "https://auth.eu.rhombussystems.com"
+	default:
+		return "https://auth.rhombussystems.com"
+	}
+}
+
+// ConsoleBaseURLForRegion returns the web console base URL for the given region.
+func ConsoleBaseURLForRegion(region string) string {
+	switch region {
+	case RegionEU:
+		return "https://console.eu.rhombussystems.com"
+	default:
+		return "https://console.rhombussystems.com"
+	}
+}
+
+// RegionForEndpoint returns the region matching the given endpoint URL,
+// or an empty string if the endpoint is custom.
+func RegionForEndpoint(endpoint string) string {
+	switch endpoint {
+	case DefaultEndpointURL:
+		return RegionUS
+	case EUEndpointURL:
+		return RegionEU
+	default:
+		return ""
+	}
+}
 
 type Config struct {
 	ApiKey      string

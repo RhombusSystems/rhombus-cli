@@ -30,7 +30,20 @@ var configureCmd = &cobra.Command{
 
 		apiKey := prompt(reader, "Rhombus API Key", maskKey(existing.ApiKey))
 		outputFmt := prompt(reader, "Default output format", existing.Output)
-		endpoint := prompt(reader, "Default endpoint URL", existing.EndpointURL)
+
+		currentRegion := config.RegionForEndpoint(existing.EndpointURL)
+		if currentRegion == "" {
+			currentRegion = config.RegionUS
+		}
+		region := strings.ToLower(prompt(reader, "Region (us/eu)", currentRegion))
+
+		endpointDefault := config.EndpointForRegion(region)
+		if region == "" || (region != config.RegionUS && region != config.RegionEU) {
+			// Unknown/custom region — keep the existing endpoint as default so the
+			// user can type any URL.
+			endpointDefault = existing.EndpointURL
+		}
+		endpoint := prompt(reader, "Default endpoint URL", endpointDefault)
 
 		if apiKey != "" {
 			if err := config.SaveCredentials(profile, apiKey); err != nil {
