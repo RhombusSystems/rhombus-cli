@@ -219,6 +219,20 @@ rhombus voice --model base
 
 Natural language interface to your Rhombus deployment. The chat agent can execute CLI commands on your behalf.
 
+### Claude Code plugins
+
+Rhombus publishes a [Claude Code](https://claude.com/claude-code) plugin marketplace at [RhombusSystems/claude-code-plugins](https://github.com/RhombusSystems/claude-code-plugins) with three plugins — `rhombus-developer`, `rhombus-user`, and `rhombus-partner` — that add Rhombus-aware commands, agents, and skills to Claude Code.
+
+When the CLI runs inside Claude Code, it emits a one-line install hint so Claude Code can offer to set up the matching plugin (the partner plugin when you're in a `--partner-org`/partner context, otherwise the user plugin). The hint is written only when the `CLAUDECODE` environment variable is set, goes to stderr on its own line, and is stripped by Claude Code before it reaches the model — so it never appears for users running the CLI directly and never affects command output or pipelines.
+
+To add the marketplace and enable a plugin yourself:
+
+```sh
+# In Claude Code:
+/plugin marketplace add RhombusSystems/claude-code-plugins
+/plugin enable rhombus-user      # or rhombus-developer / rhombus-partner
+```
+
 ### Partner accounts
 
 For partner/multi-tenant organizations, pass `--partner-org` to operate on a client org:

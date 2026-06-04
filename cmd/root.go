@@ -17,6 +17,7 @@ var rootCmd = &cobra.Command{
 	Short: "CLI for the Rhombus API",
 	Long:  "A command-line interface for all Rhombus API operations.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		maybeEmitPluginHint(cmd)
 		// Skip partner org resolution for commands that don't make API calls
 		name := cmd.Name()
 		if name == "login" || name == "configure" || name == "help" || name == "completion" {
@@ -35,6 +36,14 @@ func init() {
 	rootCmd.PersistentFlags().Bool("verbose", false, "Print full HTTP request and response details")
 
 	generated.RegisterAll(rootCmd)
+
+	// Emit the plugin hint on help output too (--help and bare `rhombus` print help
+	// without running PersistentPreRunE). Applies to all subcommands.
+	defaultHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		maybeEmitPluginHint(cmd)
+		defaultHelp(cmd, args)
+	})
 }
 
 func SetVersion(v string) {
