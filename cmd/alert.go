@@ -247,6 +247,17 @@ func runAlertDownload(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// mediaURIForAuth rewrites a public dash.rhombussystems.com media URI to the
+// dash-internal host only when the profile uses cert-based (mTLS) auth. The
+// dash-internal host requires a client certificate; token-auth profiles must
+// keep the public dash host, which authenticates via the x-auth-apikey header.
+func mediaURIForAuth(cfg config.Config, uri string) string {
+	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+		return strings.Replace(uri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
+	}
+	return uri
+}
+
 func downloadWithAuthQuiet(cfg config.Config, mediaURL, outputPath string) error {
 	req, err := http.NewRequest("GET", mediaURL, nil)
 	if err != nil {

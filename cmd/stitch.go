@@ -145,8 +145,8 @@ func runStitch(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if t, _ := resp["wanVodMpdUriTemplate"].(string); t != "" {
-			// Use dash-internal for cert-based WAN auth
-			vt.wan = strings.Replace(t, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
+			// dash-internal requires mTLS; only rewrite for cert-auth profiles.
+			vt.wan = mediaURIForAuth(cfg, t)
 		}
 		if vt.lan != "" || vt.wan != "" {
 			vodTemplates[camUUID] = vt

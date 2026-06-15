@@ -477,7 +477,7 @@ func downloadFramesWAN(cfg config.Config, camUUID, camDir string, frameTimes, ac
 			continue
 		}
 
-		frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
+		frameUri = mediaURIForAuth(cfg, frameUri)
 
 		if err := downloadWithAuthQuiet(cfg, frameUri, framePath); err != nil {
 			continue

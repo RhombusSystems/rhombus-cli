@@ -583,7 +583,7 @@ func downloadStillWAN(cfg config.Config, camUUID, outputPath string) error {
 		return fmt.Errorf("no frame URI returned")
 	}
 
-	frameUri = strings.Replace(frameUri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
+	frameUri = mediaURIForAuth(cfg, frameUri)
 	return downloadWithAuthQuiet(cfg, frameUri, outputPath)
 }
 
