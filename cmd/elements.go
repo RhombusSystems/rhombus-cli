@@ -10,23 +10,23 @@ import (
 )
 
 func init() {
-	onguardCmd := &cobra.Command{
-		Use:   "onguard",
-		Short: "Query Honeywell OnGuard access-control events",
-		Long:  "Search OnGuard badge events (grants and anomalies) recorded as camera seekpoints.",
+	elementsCmd := &cobra.Command{
+		Use:   "elements",
+		Short: "Query Honeywell Elements access-control events",
+		Long:  "Search Honeywell Elements badge events (grants and anomalies) recorded as camera seekpoints.",
 	}
 
 	eventsCmd := &cobra.Command{
 		Use:   "events",
-		Short: "Search OnGuard badge events",
-		Long: "Search OnGuard access-control events by time, camera, location, cardholder, badge status, " +
+		Short: "Search Honeywell Elements badge events",
+		Long: "Search Honeywell Elements access-control events by time, camera, location, cardholder, badge status, " +
 			"area, and anomaly type. Scoped to your org and your accessible devices/locations. Emits JSON " +
 			"by default for easy consumption by agents.\n\n" +
 			"Examples:\n" +
-			"  rhombus onguard events --after \"24h ago\"\n" +
-			"  rhombus onguard events --cardholder \"Lisa Lake\" --after \"7d ago\"\n" +
-			"  rhombus onguard events --anomaly-only --camera \"Lobby Cam\"",
-		RunE: runOnGuardEvents,
+			"  rhombus elements events --after \"24h ago\"\n" +
+			"  rhombus elements events --cardholder \"Lisa Lake\" --after \"7d ago\"\n" +
+			"  rhombus elements events --anomaly-only --camera \"Lobby Cam\"",
+		RunE: runElementsEvents,
 	}
 	eventsCmd.Flags().String("after", "24h ago", "Only events at/after this time (e.g. \"24h ago\", \"2026-06-16\")")
 	eventsCmd.Flags().String("before", "", "Only events at/before this time")
@@ -39,11 +39,11 @@ func init() {
 	eventsCmd.Flags().Bool("anomaly-only", false, "Only anomaly events (inactive badge / no entry made)")
 	eventsCmd.Flags().Int("max", 100, "Maximum number of events to return")
 
-	onguardCmd.AddCommand(eventsCmd)
-	rootCmd.AddCommand(onguardCmd)
+	elementsCmd.AddCommand(eventsCmd)
+	rootCmd.AddCommand(elementsCmd)
 }
 
-func runOnGuardEvents(cmd *cobra.Command, args []string) error {
+func runElementsEvents(cmd *cobra.Command, args []string) error {
 	cfg := config.LoadFromCmd(cmd)
 
 	afterStr, _ := cmd.Flags().GetString("after")
@@ -59,11 +59,10 @@ func runOnGuardEvents(cmd *cobra.Command, args []string) error {
 
 	body := map[string]any{
 		"limit": maxResults,
-		// Scope the unified integration access-event search to OnGuard's dedicated activity types.
 		"activityTypes": []string{
-			"ONGUARD_BADGE_AUTHORIZED",
-			"ONGUARD_BADGE_ANOMALY",
-			"ONGUARD_NO_ENTRY_MADE",
+			"ELEMENTS_BADGE_AUTHORIZED",
+			"ELEMENTS_BADGE_ANOMALY",
+			"ELEMENTS_NO_ENTRY_MADE",
 		},
 	}
 
