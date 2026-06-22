@@ -106,7 +106,7 @@ func runElementsEvents(cmd *cobra.Command, args []string) error {
 		body["anomalyOnly"] = true
 	}
 
-	resp, err := client.APICall(cfg, "/api/eventSearchV2/searchAccessControlEvents", body)
+	resp, err := client.APICall(cfg, "/api/eventSearchV2/searchIntegrationAccessEvents", body)
 	if err != nil {
 		return err
 	}

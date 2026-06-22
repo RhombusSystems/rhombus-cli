@@ -59,6 +59,12 @@ func runOnGuardEvents(cmd *cobra.Command, args []string) error {
 
 	body := map[string]any{
 		"limit": maxResults,
+		// Scope the unified integration access-event search to OnGuard's dedicated activity types.
+		"activityTypes": []string{
+			"ONGUARD_BADGE_AUTHORIZED",
+			"ONGUARD_BADGE_ANOMALY",
+			"ONGUARD_NO_ENTRY_MADE",
+		},
 	}
 
 	if afterStr != "" {
@@ -101,7 +107,7 @@ func runOnGuardEvents(cmd *cobra.Command, args []string) error {
 		body["anomalyOnly"] = true
 	}
 
-	resp, err := client.APICall(cfg, "/api/eventSearchV2/searchOnGuardEvents", body)
+	resp, err := client.APICall(cfg, "/api/eventSearchV2/searchIntegrationAccessEvents", body)
 	if err != nil {
 		return err
 	}
