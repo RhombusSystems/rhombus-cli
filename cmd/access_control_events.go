@@ -39,9 +39,9 @@ import (
 //               access_granted_entry_made, epoch-ms timestamp). HMAC-SHA256 signed.
 //   - NetBox:   HoneywellNetBoxWebhookEngine   (eventType, portalKey, portalName, personName, credentialStatus,
 //               entryMade, ISO-8601 timestamp). Token-only; read fully INLINE -> rich fake events.
-//   - Elements: HoneywellElementsWebhookEngine (thin webhook: id/eventType/deviceId/timestamp/personId). Rich
-//               fields come from a follow-up Elements API call (getEventById) the engine makes; a FAKE webhook's
-//               synthetic id won't resolve, so Elements degrades to a BASIC grant only (no anomaly/area/status).
+//   - Elements: HoneywellElementsWebhookEngine (cardholderName, areaEntering, credentialStatus, badgeType,
+//               entryMade sent INLINE -> rich fake events, like NetBox/OnGuard). If those rich fields are omitted
+//               the engine falls back to a follow-up Elements API call (getEventById).
 
 const (
 	vendorOnGuard  = "onguard"
@@ -282,7 +282,7 @@ func runSeedDemo(cmd *cobra.Command, args []string) error {
 func printSeedSummary(vendors []string, perVendor, total int) {
 	fmt.Printf("\nDone. Fired %d event(s) across %s (%d per vendor).\n",
 		total, strings.Join(vendors, ", "), perVendor)
-	fmt.Println("\nNote: only doors mapped to a camera render seekpoints; Elements fakes degrade to a basic grant.")
+	fmt.Println("\nNote: only doors mapped to a camera render seekpoints.")
 	fmt.Println("Suggested follow-up queries (use the same --profile):")
 	for _, v := range vendors {
 		if v == vendorElements {
@@ -513,31 +513,42 @@ func buildNetBoxPayload(ev accessEvent) ([]byte, string, error) {
 	return b, summarize("NetBox", ev), nil
 }
 
-// buildElementsPayload mirrors the THIN HoneywellElementsWebhookEngine webhook: id, eventType, deviceId, deviceName,
-// timestamp (ISO-8601), personId. The engine enriches area/status/anomaly via a follow-up getEventById call against
-// the real Elements API, which a synthetic id cannot satisfy -- so a fake Elements webhook only yields a BASIC grant
-// (no anomaly / area / status). status and no-entry are therefore not represented in the payload.
+// buildElementsPayload sends the rich access-control context INLINE on the webhook (cardholderName, areaEntering,
+// credentialStatus, badgeType, entryMade) in addition to the thin fields (id, eventType, deviceId, deviceName,
+// timestamp, personId). The HoneywellElementsWebhookEngine now reads these directly and drives the full rich
+// seekpoint (anomaly detection + AC metadata) without an Elements-API call -- so synthetic Elements events are fully
+// rich, on par with OnGuard/NetBox. (If the rich fields are omitted, the engine falls back to its getEventById API
+// enrichment.)
 func buildElementsPayload(ev accessEvent) ([]byte, string, error) {
 	deviceID := ev.door
 	if deviceID == "" {
 		deviceID = "device-1"
 	}
+	eventType := "Access Granted"
+	if !ev.entryMade {
+		eventType = "Access Granted - No Entry Made"
+	}
 
 	payload := map[string]any{
 		"id":         fmt.Sprintf("evt-%d", ev.timestamp.UnixMilli()),
-		"eventType":  "Access Granted",
+		"eventType":  eventType,
 		"timestamp":  ev.timestamp.UTC().Format(time.RFC3339),
 		"deviceId":   deviceID,
 		"deviceName": ev.area,
 		"personId":   "p-1001",
+		// Rich (optional) fields — the engine uses these inline, no Elements-API round-trip.
+		"cardholderName":   ev.cardholder,
+		"areaEntering":     ev.area,
+		"credentialStatus": ev.status,
+		"badgeType":        "Physical",
+		"entryMade":        ev.entryMade,
 	}
 
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return nil, "", fmt.Errorf("marshaling Elements payload: %w", err)
 	}
-	// Elements degrades to a basic grant; reflect that the cardholder/area shown is best-effort.
-	return b, fmt.Sprintf("grant %q @ %q (basic grant only; Elements enriches from its API)", ev.cardholder, ev.area), nil
+	return b, summarize("Elements", ev), nil
 }
 
 // summarize builds the one-line human summary (used by OnGuard / NetBox which carry full context inline).
