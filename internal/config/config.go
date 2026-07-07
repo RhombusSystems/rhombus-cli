@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
@@ -43,6 +44,18 @@ func AuthBaseURLForRegion(region string) string {
 	}
 }
 
+// AuthWebBaseURLForRegion returns the base URL of the OAuth service that handles
+// dynamic client registration (/oauth/register) and the token endpoint
+// (/oauth/token) for the given region.
+func AuthWebBaseURLForRegion(region string) string {
+	switch region {
+	case RegionEU:
+		return "https://auth-web.eu.rhombussystems.com"
+	default:
+		return "https://auth-web.rhombussystems.com"
+	}
+}
+
 // ConsoleBaseURLForRegion returns the web console base URL for the given region.
 func ConsoleBaseURLForRegion(region string) string {
 	switch region {
@@ -78,6 +91,15 @@ type Config struct {
 	IsPartner   bool   // whether this is a partner-level credential
 	PartnerOrg  string // client org UUID for partner emulation (set via --partner-org flag)
 	Verbose     bool   // print full HTTP request and response details
+
+	// OAuth browser-login client. These are obtained automatically via dynamic
+	// client registration (DCR) on first `rhombus login` and persisted so the
+	// CLI reuses the same registered client on subsequent logins. They are not
+	// user-configured. CallbackPort is the loopback port the registered client's
+	// redirect URI is bound to (exact-match), so changing it forces re-registration.
+	OAuthClientID     string
+	OAuthClientSecret string
+	CallbackPort      int
 }
 
 func configDir() string {
@@ -116,6 +138,14 @@ func LoadConfig(profile string) Config {
 			if k, err := s.GetKey("endpoint_url"); err == nil {
 				cfg.EndpointURL = k.String()
 			}
+			if k, err := s.GetKey("oauth_client_id"); err == nil {
+				cfg.OAuthClientID = k.String()
+			}
+			if k, err := s.GetKey("callback_port"); err == nil {
+				if p, err := k.Int(); err == nil {
+					cfg.CallbackPort = p
+				}
+			}
 		}
 	}
 
@@ -140,6 +170,9 @@ func LoadConfig(profile string) Config {
 			}
 			if k, err := s.GetKey("is_partner"); err == nil {
 				cfg.IsPartner = k.String() == "true"
+			}
+			if k, err := s.GetKey("oauth_client_secret"); err == nil {
+				cfg.OAuthClientSecret = k.String()
 			}
 		}
 	}
@@ -190,6 +223,50 @@ func LoadFromCmd(cmd *cobra.Command) Config {
 }
 
 func SaveConfig(profile, output, endpointURL string) error {
+	fields := map[string]string{}
+	if output != "" {
+		fields["output"] = output
+	}
+	if endpointURL != "" {
+		fields["endpoint_url"] = endpointURL
+	}
+	return saveConfigFields(profile, fields)
+}
+
+// SaveOAuthClient persists the dynamically-registered OAuth client for a profile.
+// The (non-secret) client_id and callback_port live in the config file; the
+// client_secret lives in the 0600 credentials file. Empty/zero values are skipped
+// so callers can update a single field without clearing the others.
+func SaveOAuthClient(profile, clientID, clientSecret string, callbackPort int) error {
+	cfgFields := map[string]string{}
+	if clientID != "" {
+		cfgFields["oauth_client_id"] = clientID
+	}
+	if callbackPort != 0 {
+		cfgFields["callback_port"] = strconv.Itoa(callbackPort)
+	}
+	if len(cfgFields) > 0 {
+		if err := saveConfigFields(profile, cfgFields); err != nil {
+			return err
+		}
+	}
+	if clientSecret != "" {
+		if err := saveCredentialFields(profile, map[string]string{
+			"oauth_client_secret": clientSecret,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// saveConfigFields merges the given keys into a profile's section of the config
+// file without clobbering keys it doesn't set.
+func saveConfigFields(profile string, fields map[string]string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
 	dir := configDir()
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
@@ -210,11 +287,8 @@ func SaveConfig(profile, output, endpointURL string) error {
 	if err != nil {
 		return err
 	}
-	if output != "" {
-		s.Key("output").SetValue(output)
-	}
-	if endpointURL != "" {
-		s.Key("endpoint_url").SetValue(endpointURL)
+	for k, v := range fields {
+		s.Key(k).SetValue(v)
 	}
 
 	return f.SaveTo(path)
