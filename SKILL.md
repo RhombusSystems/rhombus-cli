@@ -24,6 +24,7 @@ Official CLI for the [Rhombus](https://www.rhombus.com) public API — ~60 servi
   - Recent alerts: `rhombus alert` group
   - Footage review: `rhombus analyze` (AI analysis of a camera + time window), `rhombus stitch` (multi-camera clip assembly)
   - Natural-language queries: `rhombus chat`
+  - Bandwidth & analytics metrics: `rhombus report get-count-report-v2 --scope DEVICE --uuid <cam> --types '["BANDWIDTH"]' --interval HOURLY --start-time-ms <ms> --end-time-ms <ms>` — other `types`: `CROWD`, `PEOPLE`, `FACES`, `MOTION`, `VEHICLES`, `LICENSEPLATES`, `ALERTS`, `DWELL`. Note: `--help` lists flag *names* but not accepted enum *values*; consult the OpenAPI spec (below) for the valid values of any param.
 
 ## References
 
