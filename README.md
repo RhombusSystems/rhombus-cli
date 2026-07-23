@@ -44,6 +44,14 @@ rhombus login
 
 Opens your browser for OAuth2 authentication, then creates and stores an API key locally. Supports both certificate-based (mTLS) and token-based auth.
 
+For partner accounts, add `--partner`:
+
+```sh
+rhombus login --partner
+```
+
+If you omit the flag, the CLI mints an org-level key first and automatically falls back to a partner-level key when the org attempt is denied — so `--partner` is only needed to skip that fallback.
+
 ### Manual configuration
 
 ```sh
@@ -58,7 +66,7 @@ Prompts for an API key, output format, and endpoint URL. Useful when you already
 |---|---|
 | `RHOMBUS_API_KEY` | API key (overrides credentials file) |
 | `RHOMBUS_PROFILE` | Profile name (default: `default`) |
-| `RHOMBUS_OUTPUT` | Output format: `json`, `table`, `text` |
+| `RHOMBUS_OUTPUT` | Output format: `json` (`table`/`text` currently fall back to JSON) |
 | `RHOMBUS_ENDPOINT_URL` | API endpoint override |
 
 ### Profiles
@@ -81,11 +89,12 @@ rhombus <command> [subcommand] [flags]
 ### Global flags
 
 ```
---profile string    Configuration profile (default: "default")
---output string     Output format: json, table, text (default: json)
---api-key string    Override API key
+--profile string       Configuration profile (default: "default")
+--output string        Output format: json (default; table/text fall back to JSON)
+--api-key string       Override API key
 --endpoint-url string  Override API endpoint
 --partner-org string   Client org name or UUID (partner accounts)
+--verbose              Print full HTTP request and response details
 ```
 
 ## Commands
@@ -243,6 +252,8 @@ rhombus camera get-minimal-camera-state-list --partner-org <org-uuid>
 ```
 
 Name matching is case-insensitive and substring-based. If multiple orgs match, you'll be prompted to select one.
+
+Note: `--partner-org` selects which client org a command *operates on*; to *authenticate* the CLI as a partner account in the first place, log in with `rhombus login --partner`.
 
 ## Configuration files
 
