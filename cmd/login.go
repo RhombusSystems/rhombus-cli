@@ -29,6 +29,7 @@ func init() {
 	loginCmd.Flags().Int("callback-port", 0, "Fixed loopback port for the OAuth redirect (default: an OS-assigned free port)")
 	loginCmd.Flags().Bool("force", false, "Re-authenticate even if the profile already has an API key")
 	loginCmd.Flags().Bool("force-register", false, "Force dynamic client re-registration even if a client is already saved")
+	loginCmd.Flags().Bool("partner", false, "Authenticate as a partner account (mint a partner-level API key). If omitted, a partner account is auto-detected when org-level minting is denied.")
 	rootCmd.AddCommand(loginCmd)
 }
 
@@ -162,17 +163,33 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Step 4: use the OAuth access token to mint a long-lived API key. A
 	// cert-based key (mTLS) is preferred; fall back to a token-based key if the
 	// server cannot issue a cert.
+	//
+	// Partner accounts must mint through the partner endpoint. The org endpoint
+	// authenticates the same OAuth token, but the resulting org-level principal
+	// lacks org API-administration permission, so the server's RBAC layer denies
+	// it with a (bare) HTTP 403. An explicit --partner forces the partner path;
+	// otherwise we try the org path first and, on a 403, retry as a partner.
+	partner, _ := cmd.Flags().GetBool("partner")
+
 	fmt.Println("Minting API key...")
-	_, err = createApiKey(apiEndpoint, token.AccessToken, profile, false, true)
+	_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, true)
 	if err != nil {
-		_, err = createApiKey(apiEndpoint, token.AccessToken, profile, false, false)
+		_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, false)
+	}
+	if err != nil && !partner && isForbidden(err) {
+		fmt.Println("Org-level API key was denied (HTTP 403); retrying as a partner account...")
+		partner = true
+		_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, true)
+		if err != nil {
+			_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, false)
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %w", err)
 	}
 
 	// Also create a token-based key for services that don't support cert auth (e.g. WebSocket).
-	if tokenKey, tokenErr := createTokenOnlyApiKey(apiEndpoint, token.AccessToken, profile, false); tokenErr == nil && tokenKey != "" {
+	if tokenKey, tokenErr := createTokenOnlyApiKey(apiEndpoint, token.AccessToken, profile, partner); tokenErr == nil && tokenKey != "" {
 		config.SaveField(profile, "ws_api_key", tokenKey)
 	}
 
@@ -180,6 +197,13 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Successfully logged in! Credentials saved to profile %q.\n", profile)
 	fmt.Println("Run 'rhombus camera get-minimal-camera-state-list' to verify.")
 	return nil
+}
+
+// isForbidden reports whether err originated from an HTTP 403 response. The
+// API-key mint helpers wrap the status as "HTTP <code>: <body>", so a partner
+// account denied at the org endpoint surfaces here as an HTTP 403.
+func isForbidden(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "HTTP 403")
 }
 
 type callbackData struct {
