@@ -786,7 +786,7 @@ func parsePeriod(period string) (int64, int64, error) {
 		return start.UnixMilli(), end.UnixMilli(), nil
 	}
 
-	return 0, 0, fmt.Errorf("could not parse period: \"%s\". Try: 'yesterday between 8am and 9am', 'last 2 hours', 'march 15 8am to 10am'")
+	return 0, 0, fmt.Errorf("could not parse period: \"%s\". Try: 'yesterday between 8am and 9am', 'last 2 hours', 'march 15 8am to 10am'", period)
 }
 
 type timeOfDay struct {
