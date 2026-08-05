@@ -29,13 +29,13 @@ var configureCmd = &cobra.Command{
 		reader := bufio.NewReader(os.Stdin)
 
 		apiKey := prompt(reader, "Rhombus API Key", maskKey(existing.ApiKey))
-		outputFmt := prompt(reader, "Default output format", existing.Output)
+		outputFmt := orDefault(prompt(reader, "Default output format", existing.Output), existing.Output)
 
 		currentRegion := config.RegionForEndpoint(existing.EndpointURL)
 		if currentRegion == "" {
 			currentRegion = config.RegionUS
 		}
-		region := strings.ToLower(prompt(reader, "Region (us/eu)", currentRegion))
+		region := strings.ToLower(orDefault(prompt(reader, "Region (us/eu)", currentRegion), currentRegion))
 
 		endpointDefault := config.EndpointForRegion(region)
 		if region == "" || (region != config.RegionUS && region != config.RegionEU) {
@@ -43,7 +43,7 @@ var configureCmd = &cobra.Command{
 			// user can type any URL.
 			endpointDefault = existing.EndpointURL
 		}
-		endpoint := prompt(reader, "Default endpoint URL", endpointDefault)
+		endpoint := orDefault(prompt(reader, "Default endpoint URL", endpointDefault), endpointDefault)
 
 		if apiKey != "" {
 			if err := config.SaveCredentials(profile, apiKey); err != nil {
@@ -60,16 +60,20 @@ var configureCmd = &cobra.Command{
 	},
 }
 
-func prompt(reader *bufio.Reader, label, current string) string {
-	if current != "" {
-		fmt.Printf("%s [%s]: ", label, current)
+// BE - returns "" when the default is accepted; the displayed value may be a mask, so callers must never persist it.
+func prompt(reader *bufio.Reader, label, display string) string {
+	if display != "" {
+		fmt.Printf("%s [%s]: ", label, display)
 	} else {
 		fmt.Printf("%s [None]: ", label)
 	}
 	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
+	return strings.TrimSpace(input)
+}
+
+func orDefault(input, fallback string) string {
 	if input == "" {
-		return current
+		return fallback
 	}
 	return input
 }
