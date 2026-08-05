@@ -32,16 +32,12 @@ var configureCmd = &cobra.Command{
 		outputFmt := orDefault(prompt(reader, "Default output format", existing.Output), existing.Output)
 
 		currentRegion := config.RegionForEndpoint(existing.EndpointURL)
-		if currentRegion == "" {
-			currentRegion = config.RegionUS
-		}
-		region := strings.ToLower(orDefault(prompt(reader, "Region (us/eu)", currentRegion), currentRegion))
+		region := strings.ToLower(prompt(reader, "Region (us/eu)", orDefault(currentRegion, "custom")))
 
-		endpointDefault := config.EndpointForRegion(region)
-		if region == "" || (region != config.RegionUS && region != config.RegionEU) {
-			// Unknown/custom region — keep the existing endpoint as default so the
-			// user can type any URL.
-			endpointDefault = existing.EndpointURL
+		// BE - only a typed region may replace the endpoint; a custom endpoint maps to no region and must survive an Enter-through.
+		endpointDefault := existing.EndpointURL
+		if region == config.RegionUS || region == config.RegionEU {
+			endpointDefault = config.EndpointForRegion(region)
 		}
 		endpoint := orDefault(prompt(reader, "Default endpoint URL", endpointDefault), endpointDefault)
 
