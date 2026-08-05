@@ -115,3 +115,77 @@ func TestConfigureKeepsOutputAndEndpointWhenPromptSkipped(t *testing.T) {
 		t.Errorf("endpoint = %q, want %q", cfg.EndpointURL, config.EUEndpointURL)
 	}
 }
+
+const itgEndpoint = "https://api2.itg.rhombussystems.com"
+
+// Every endpoint class must survive an Enter-through, including the custom ones a
+// region cannot describe — silently repointing those at prod sends commands to the
+// wrong environment while appearing to succeed.
+func TestConfigureKeepsEveryEndpointClassWhenPromptSkipped(t *testing.T) {
+	for _, endpoint := range []string{
+		config.DefaultEndpointURL,
+		config.EUEndpointURL,
+		itgEndpoint,
+		"http://localhost:8451",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			if err := config.SaveConfig(config.DefaultProfile, "json", endpoint); err != nil {
+				t.Fatal(err)
+			}
+
+			swapStdin(t, "\n\n\n\n")
+			if err := configureCmd.RunE(configureCmd, nil); err != nil {
+				t.Fatalf("configure: %v", err)
+			}
+
+			if got := config.LoadConfig(config.DefaultProfile).EndpointURL; got != endpoint {
+				t.Fatalf("endpoint = %q, want %q", got, endpoint)
+			}
+		})
+	}
+}
+
+func TestConfigureSwitchesEndpointWhenRegionTyped(t *testing.T) {
+	for _, tc := range []struct {
+		name, start, typed, want string
+	}{
+		{"custom to eu", itgEndpoint, "eu", config.EUEndpointURL},
+		{"custom to us", itgEndpoint, "us", config.DefaultEndpointURL},
+		{"eu to us", config.EUEndpointURL, "us", config.DefaultEndpointURL},
+		{"us to eu", config.DefaultEndpointURL, "eu", config.EUEndpointURL},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			if err := config.SaveConfig(config.DefaultProfile, "json", tc.start); err != nil {
+				t.Fatal(err)
+			}
+
+			swapStdin(t, "\n\n"+tc.typed+"\n\n")
+			if err := configureCmd.RunE(configureCmd, nil); err != nil {
+				t.Fatalf("configure: %v", err)
+			}
+
+			if got := config.LoadConfig(config.DefaultProfile).EndpointURL; got != tc.want {
+				t.Fatalf("endpoint = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestConfigureSavesTypedEndpoint(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := config.SaveConfig(config.DefaultProfile, "json", itgEndpoint); err != nil {
+		t.Fatal(err)
+	}
+
+	const typed = "https://api2.staging.rhombussystems.com"
+	swapStdin(t, "\n\n\n"+typed+"\n")
+	if err := configureCmd.RunE(configureCmd, nil); err != nil {
+		t.Fatalf("configure: %v", err)
+	}
+
+	if got := config.LoadConfig(config.DefaultProfile).EndpointURL; got != typed {
+		t.Fatalf("endpoint = %q, want %q", got, typed)
+	}
+}
