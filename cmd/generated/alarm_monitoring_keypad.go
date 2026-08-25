@@ -38,6 +38,7 @@ func newClaimKeypadActivationTokenCmd() *cobra.Command {
 					{Name: "activationToken", FlagName: "activation-token", Type: "string", Required: false, Example: "act_token_12345"},
 					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Main Entrance Keypad"},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -54,6 +55,7 @@ func newClaimKeypadActivationTokenCmd() *cobra.Command {
 	cmd.Flags().String("activation-token", "", "Activation token for claiming the keypad")
 	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("name", "", "Name for the keypad")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -177,9 +179,11 @@ func newUpdateKeypadCmd() *cobra.Command {
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Main Entrance Keypad"},
 					{Name: "qualifiedAddress", FlagName: "qualified-address", Type: "object", Required: false, Example: nil},
 					{Name: "showCallBuildingAdmin", FlagName: "show-call-building-admin", Type: "boolean", Required: false, Example: true},
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
 					{Name: "timeZoneId", FlagName: "time-zone-id", Type: "string", Required: false, Example: "America/Los_Angeles"},
 					{Name: "videoWallUuid", FlagName: "video-wall-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "videoWallUuidUpdated", FlagName: "video-wall-uuid-updated", Type: "boolean", Required: false, Example: false},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -206,9 +210,11 @@ func newUpdateKeypadCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "Name of the keypad")
 	cmd.Flags().String("qualified-address", "", "")
 	cmd.Flags().String("show-call-building-admin", "", "Whether to show the call building admin option")
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether the sub-locations hierarchy key has been updated")
 	cmd.Flags().String("time-zone-id", "", "Time zone ID for the keypad location")
 	cmd.Flags().String("video-wall-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("video-wall-uuid-updated", "", "Whether the video wall UUID has been updated")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

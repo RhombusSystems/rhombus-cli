@@ -15,8 +15,10 @@ func NewRelayCmd() *cobra.Command {
 		Short: "Relay Webservice operations",
 	}
 
+	cmd.AddCommand(newAddThirdPartyCameraViaOnvifCmd())
 	cmd.AddCommand(newAssignThirdPartyCameraToNVRCmd())
 	cmd.AddCommand(newAssignThirdPartyCameraToRelayCameraCmd())
+	cmd.AddCommand(newAssignThirdPartyMultiFacetCameraToNVRCmd())
 	cmd.AddCommand(newAuthenticateThirdPartyCameraCmd())
 	cmd.AddCommand(newCreateThirdPartyCameraPasswordCmd())
 	cmd.AddCommand(newDeleteThirdPartyCameraDiscoveryCmd())
@@ -30,6 +32,7 @@ func NewRelayCmd() *cobra.Command {
 	cmd.AddCommand(newGetNVRDetailsCmd())
 	cmd.AddCommand(newGetRelayUptimeWindowsCmd())
 	cmd.AddCommand(newGetRtspEndpointsCmd())
+	cmd.AddCommand(newGetThirdPartyCameraDiscoveryScanStatusCmd())
 	cmd.AddCommand(newGetThirdPartyCameraPasswordsCmd())
 	cmd.AddCommand(newManualDiscoverCameraCmd())
 	cmd.AddCommand(newPtzCmd())
@@ -39,6 +42,52 @@ func NewRelayCmd() *cobra.Command {
 	cmd.AddCommand(newUnregisterNVRCmd())
 	cmd.AddCommand(newUpdateNVRDetailsV2Cmd())
 	cmd.AddCommand(newUpdateNVRFirmwareCmd())
+	return cmd
+}
+
+func newAddThirdPartyCameraViaOnvifCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-third-party-camera-via-onvif",
+		Short: "Add third party camera via ONVIF",
+		Long:  "Probe a single camera by IP address over ONVIF, auto-derive its metadata, and (unless disabled) provision it — adding a camera from just an IP and credentials.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "autoAssign", FlagName: "auto-assign", Type: "boolean", Required: false, Example: nil},
+					{Name: "ipAddress", FlagName: "ip-address", Type: "string", Required: false, Example: "10.5.4.20"},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: nil},
+					{Name: "nvrUuid", FlagName: "nvr-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "password", FlagName: "password", Type: "string", Required: false, Example: nil},
+					{Name: "trySavedCredentials", FlagName: "try-saved-credentials", Type: "boolean", Required: false, Example: nil},
+					{Name: "username", FlagName: "username", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/relay/addThirdPartyCameraViaOnvif", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("auto-assign", "", "Provision (assign to the NVR) automatically after a successful probe. Defaults to false (probe-then-confirm).")
+	cmd.Flags().String("ip-address", "", "IPv4 address of the camera to probe")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("name", "", "Camera name. When blank, derived from the ONVIF manufacturer and model.")
+	cmd.Flags().String("nvr-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("password", "", "ONVIF password to try first (optional)")
+	cmd.Flags().String("try-saved-credentials", "", "Also try the org's saved third-party camera credentials. Defaults to true.")
+	cmd.Flags().String("username", "", "ONVIF username to try first (optional)")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 
@@ -115,6 +164,46 @@ func newAssignThirdPartyCameraToRelayCameraCmd() *cobra.Command {
 	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("name", "", "Name for the third-party camera")
 	cmd.Flags().String("rtsp-url", "", "RTSP URL for the camera stream")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newAssignThirdPartyMultiFacetCameraToNVRCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "assign-third-party-multi-facet-camera-to-n-v-r",
+		Short: "Assign multi-facet third party camera to NVR",
+		Long:  "Assign a multi-sensor third party camera to an NVR as one camera with multiple video facets (gated on the multiFacetThirdPartyCameraEnabled org flag)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "discoveredCameraMacAddress", FlagName: "discovered-camera-mac-address", Type: "string", Required: false, Example: nil},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Loading Dock Bispectrum"},
+					{Name: "nvruuid", FlagName: "nvruuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "rtspUrls", FlagName: "rtsp-urls", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/relay/assignThirdPartyMultiFacetCameraToNVR", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("discovered-camera-mac-address", "", "MAC address of the discovered multi-sensor camera to assign")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("name", "", "Name for the multi-facet third-party camera")
+	cmd.Flags().String("nvruuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("rtsp-urls", "", "Ordered RTSP URLs, one per sensor/lens; index 0 -> VIDEO_0 (primary), index 1 -> VIDEO_1, ...")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -274,6 +363,7 @@ func newExecuteThirdPartyCameraDiscoveryCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "additionalScanCidrs", FlagName: "additional-scan-cidrs", Type: "array", Required: false, Example: nil},
 					{Name: "deviceFilter", FlagName: "device-filter", Type: "array", Required: false, Example: nil},
 					{Name: "locationFilter", FlagName: "location-filter", Type: "array", Required: false, Example: nil},
 				})
@@ -289,6 +379,7 @@ func newExecuteThirdPartyCameraDiscoveryCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("additional-scan-cidrs", "", "Optional list of additional IPv4 CIDRs (e.g. \"10.5.0.0/24\") to scan for cameras on routed subnets that the NVR is not directly attached to. When empty (the default), discovery only covers the NVR's own directly-attached subnets. Multicast/WS-Discovery cannot cross routers, so these subnets are covered by an RTSP port scan followed by unicast ONVIF probes. At most 8 entries, each /16 or smaller.")
 	cmd.Flags().String("device-filter", "", "Set of device UUIDs to filter discovery by")
 	cmd.Flags().String("location-filter", "", "Set of location UUIDs to filter discovery by")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
@@ -544,6 +635,35 @@ func newGetRtspEndpointsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("discovered-camera-mac-address", "", "MAC address of the discovered camera to get RTSP endpoints for")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetThirdPartyCameraDiscoveryScanStatusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-third-party-camera-discovery-scan-status",
+		Short: "Get third party camera discovery scan status",
+		Long:  "Returns the progress of the current/most-recent third-party camera discovery run in the org, so clients can show progress and distinguish not-started, in-progress, and complete (including complete-with-zero-cameras).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/relay/getThirdPartyCameraDiscoveryScanStatus", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -815,7 +935,7 @@ func newUpdateNVRDetailsV2Cmd() *cobra.Command {
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Main NVR"},
 					{Name: "nameUpdated", FlagName: "name-updated", Type: "boolean", Required: false, Example: nil},
 					{Name: "policyUuid", FlagName: "policy-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: nil},
 					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
@@ -846,7 +966,7 @@ func newUpdateNVRDetailsV2Cmd() *cobra.Command {
 	cmd.Flags().String("name", "", "Name of the NVR")
 	cmd.Flags().String("name-updated", "", "")
 	cmd.Flags().String("policy-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")

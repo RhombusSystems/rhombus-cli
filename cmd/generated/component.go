@@ -43,6 +43,7 @@ func NewComponentCmd() *cobra.Command {
 	cmd.AddCommand(newFindComponentEventsByCredentialHexValueCmd())
 	cmd.AddCommand(newFindComponentEventsByCredentialUuidCmd())
 	cmd.AddCommand(newFindComponentEventsByCredentialValueCmd())
+	cmd.AddCommand(newFindComponentEventsByGuestPassCmd())
 	cmd.AddCommand(newFindComponentEventsByLocationCmd())
 	cmd.AddCommand(newFindComponentEventsByOwnerDeviceCmd())
 	cmd.AddCommand(newFindComponentEventsBySupportAuthorityCmd())
@@ -54,11 +55,13 @@ func NewComponentCmd() *cobra.Command {
 	cmd.AddCommand(newFindComponentSeekPointsByLocationCmd())
 	cmd.AddCommand(newFindComponentSeekPointsByOwnerDeviceCmd())
 	cmd.AddCommand(newFindComponentSeekPointsByUserCmd())
+	cmd.AddCommand(newFindComponentShadowsByComponentCompositesCmd())
 	cmd.AddCommand(newFindComponentShadowsByOwnerDeviceCmd())
 	cmd.AddCommand(newFindComponentsByOwnerDeviceCmd())
 	cmd.AddCommand(newFindMinimalStateAccessControlledDoorsCmd())
 	cmd.AddCommand(newFindMinimalStateAccessControlledDoorsByLocationCmd())
 	cmd.AddCommand(newFindPaginatedComponentEventsByAccessControlledDoorCmd())
+	cmd.AddCommand(newFindPaginatedComponentEventsByOwnerDeviceCmd())
 	cmd.AddCommand(newGetAccessControlledDoorLabelsForOrgCmd())
 	cmd.AddCommand(newGetOrCreateDevicePhysicalPortConfigCmd())
 	cmd.AddCommand(newRemoveAccessControlledDoorLabelCmd())
@@ -1137,6 +1140,46 @@ func newFindComponentEventsByCredentialValueCmd() *cobra.Command {
 	return cmd
 }
 
+func newFindComponentEventsByGuestPassCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-component-events-by-guest-pass",
+		Short: "Retrieve all component events relevant to the specified guest pass",
+		Long:  "Retrieve all component events relevant to the specified guest pass",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "createdAfterMs", FlagName: "created-after-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "createdBeforeMs", FlagName: "created-before-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "guestPassUuid", FlagName: "guest-pass-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "limit", FlagName: "limit", Type: "integer", Required: false, Example: nil},
+					{Name: "typeFilter", FlagName: "type-filter", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/component/findComponentEventsByGuestPass", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("created-after-ms", "", "")
+	cmd.Flags().String("created-before-ms", "", "")
+	cmd.Flags().String("guest-pass-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("limit", "", "")
+	cmd.Flags().String("type-filter", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newFindComponentEventsByLocationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "find-component-events-by-location",
@@ -1557,6 +1600,38 @@ func newFindComponentSeekPointsByUserCmd() *cobra.Command {
 	return cmd
 }
 
+func newFindComponentShadowsByComponentCompositesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-component-shadows-by-component-composites",
+		Short: "Retrieve all component shadows for the components belonging to the specified component composites",
+		Long:  "Retrieve all component shadows for the components belonging to the specified component composites (doors, elevators, elevator landings). Each composite is expanded to its component references and the resulting set of component shadows is returned.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "componentCompositeUuids", FlagName: "component-composite-uuids", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/component/findComponentShadowsByComponentComposites", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("component-composite-uuids", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newFindComponentShadowsByOwnerDeviceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "find-component-shadows-by-owner-device",
@@ -1737,6 +1812,52 @@ func newFindPaginatedComponentEventsByAccessControlledDoorCmd() *cobra.Command {
 	return cmd
 }
 
+func newFindPaginatedComponentEventsByOwnerDeviceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-paginated-component-events-by-owner-device",
+		Short: "Retrieve all component events relevant to the specified owner device",
+		Long:  "Retrieve all component events relevant to the specified owner device (i.e. DC20's device uuid)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "createdAfterMs", FlagName: "created-after-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "createdBeforeMs", FlagName: "created-before-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "lastEvaluatedKey", FlagName: "last-evaluated-key", Type: "string", Required: false, Example: nil},
+					{Name: "maxPageSize", FlagName: "max-page-size", Type: "integer", Required: false, Example: nil},
+					{Name: "ownerDeviceUuid", FlagName: "owner-device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "reverseSearch", FlagName: "reverse-search", Type: "boolean", Required: false, Example: nil},
+					{Name: "typeFilter", FlagName: "type-filter", Type: "array", Required: false, Example: nil},
+					{Name: "userFilter", FlagName: "user-filter", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/component/findPaginatedComponentEventsByOwnerDevice", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("created-after-ms", "", "")
+	cmd.Flags().String("created-before-ms", "", "")
+	cmd.Flags().String("last-evaluated-key", "", "")
+	cmd.Flags().String("max-page-size", "", "")
+	cmd.Flags().String("owner-device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("reverse-search", "", "")
+	cmd.Flags().String("type-filter", "", "")
+	cmd.Flags().String("user-filter", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetAccessControlledDoorLabelsForOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-access-controlled-door-labels-for-org",
@@ -1871,6 +1992,8 @@ func newUpdateAccessControlledDoorCmd() *cobra.Command {
 					{Name: "relockAfterOpenTimeMs", FlagName: "relock-after-open-time-ms", Type: "integer", Required: false, Example: nil},
 					{Name: "remoteUnlockEnabled", FlagName: "remote-unlock-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "rexComponents", FlagName: "rex-components", Type: "array", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: nil},
 					{Name: "unlockTimeSec", FlagName: "unlock-time-sec", Type: "integer", Required: false, Example: nil},
 					{Name: "unlockTimeSecRex", FlagName: "unlock-time-sec-rex", Type: "integer", Required: false, Example: nil},
 					{Name: "waveToUnlockSettings", FlagName: "wave-to-unlock-settings", Type: "object", Required: false, Example: nil},
@@ -1914,6 +2037,8 @@ func newUpdateAccessControlledDoorCmd() *cobra.Command {
 	cmd.Flags().String("relock-after-open-time-ms", "", "")
 	cmd.Flags().String("remote-unlock-enabled", "", "")
 	cmd.Flags().String("rex-components", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "")
 	cmd.Flags().String("unlock-time-sec", "", "")
 	cmd.Flags().String("unlock-time-sec-rex", "", "")
 	cmd.Flags().String("wave-to-unlock-settings", "", "")

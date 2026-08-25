@@ -397,7 +397,7 @@ func newUpdateAudioGatewayDetailsCmd() *cobra.Command {
 					{Name: "nameUpdated", FlagName: "name-updated", Type: "boolean", Required: false, Example: nil},
 					{Name: "policyUuid", FlagName: "policy-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "policyUuidUpdated", FlagName: "policy-uuid-updated", Type: "boolean", Required: false, Example: nil},
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: nil},
 					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
@@ -431,7 +431,7 @@ func newUpdateAudioGatewayDetailsCmd() *cobra.Command {
 	cmd.Flags().String("name-updated", "", "")
 	cmd.Flags().String("policy-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("policy-uuid-updated", "", "")
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")

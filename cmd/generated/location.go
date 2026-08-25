@@ -333,7 +333,7 @@ func newGetLocationsBySubLocationsHierarchyKeyCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -347,7 +347,7 @@ func newGetLocationsBySubLocationsHierarchyKeyCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

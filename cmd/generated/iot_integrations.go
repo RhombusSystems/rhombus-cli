@@ -19,12 +19,14 @@ func NewIoTIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteIntuifaceIntegrationCmd())
 	cmd.AddCommand(newDeleteOmnialertIntegrationCmd())
 	cmd.AddCommand(newDeleteShellyIntegrationCmd())
+	cmd.AddCommand(newDeleteTritonIntegrationCmd())
 	cmd.AddCommand(newGetOmnialertIntegrationCmd())
 	cmd.AddCommand(newGetShellyIntegrationCmd())
 	cmd.AddCommand(newUpdateHaloIntegrationCmd())
 	cmd.AddCommand(newUpdateIntuifaceIntegrationCmd())
 	cmd.AddCommand(newUpdateOmnialertIntegrationCmd())
 	cmd.AddCommand(newUpdateShellyIntegrationCmd())
+	cmd.AddCommand(newUpdateTritonIntegrationCmd())
 	return cmd
 }
 
@@ -133,6 +135,35 @@ func newDeleteShellyIntegrationCmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/integrations/IoT/deleteShellyIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteTritonIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-triton-integration",
+		Short: "Delete Triton Integration",
+		Long:  "Delete Triton audio sensor integration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/IoT/deleteTritonIntegration", body)
 			if err != nil {
 				return err
 			}
@@ -325,6 +356,38 @@ func newUpdateShellyIntegrationCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("shelly-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateTritonIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-triton-integration",
+		Short: "Update Triton Integration",
+		Long:  "Update Triton audio sensor integration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "tritonSettings", FlagName: "triton-settings", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/IoT/updateTritonIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("triton-settings", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

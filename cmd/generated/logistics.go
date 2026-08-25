@@ -15,9 +15,39 @@ func NewLogisticsCmd() *cobra.Command {
 		Short: "Logistics Webservice operations",
 	}
 
+	cmd.AddCommand(newGetActiveRMAsCmd())
 	cmd.AddCommand(newGetRMAsCmd())
 	cmd.AddCommand(newGetShipmentsCmd())
 	cmd.AddCommand(newGetWarrantyApprovedRMAsCmd())
+	return cmd
+}
+
+func newGetActiveRMAsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-active-r-m-as",
+		Short: "Get device uuids for active RMAs",
+		Long:  "Get device uuids for active RMAs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/logistics/getActiveRMAs", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 

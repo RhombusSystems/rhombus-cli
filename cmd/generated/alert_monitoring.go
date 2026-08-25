@@ -41,8 +41,7 @@ func newCancelThreatCaseCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "1234"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "uuid", FlagName: "uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -56,7 +55,6 @@ func newCancelThreatCaseCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("pin", "", "PIN code required to cancel the threat case")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
@@ -217,9 +215,7 @@ func newDismissThreatCaseCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "1234"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "uuid", FlagName: "uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -233,8 +229,6 @@ func newDismissThreatCaseCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("pin", "", "PIN code required to dismiss the threat case")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
@@ -287,8 +281,7 @@ func newEscalateThreatCaseToAlarmCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "uuid", FlagName: "uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -302,7 +295,6 @@ func newEscalateThreatCaseToAlarmCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
