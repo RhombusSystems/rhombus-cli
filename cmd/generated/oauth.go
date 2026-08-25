@@ -70,6 +70,7 @@ func newDeleteApplicationCmd() *cobra.Command {
 					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "Integration app for accessing Rhombus API"},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "My Integration App"},
 					{Name: "redirectUri", FlagName: "redirect-uri", Type: "string", Required: false, Example: "https://myapp.com/oauth/callback"},
+					{Name: "tokenEndpointAuthMethod", FlagName: "token-endpoint-auth-method", Type: "string", Required: false, Example: "none"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -88,6 +89,7 @@ func newDeleteApplicationCmd() *cobra.Command {
 	cmd.Flags().String("description", "", "Description of the OAuth application")
 	cmd.Flags().String("name", "", "Name of the OAuth application")
 	cmd.Flags().String("redirect-uri", "", "OAuth redirect URI")
+	cmd.Flags().String("token-endpoint-auth-method", "", "OAuth token endpoint auth method. 'none' registers a PUBLIC (PKCE-only) client with no secret; omit or 'client_secret_basic'/'client_secret_post' for a confidential client.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -171,6 +173,7 @@ func newSubmitApplicationCmd() *cobra.Command {
 					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "Integration app for accessing Rhombus API"},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "My Integration App"},
 					{Name: "redirectUri", FlagName: "redirect-uri", Type: "string", Required: false, Example: "https://myapp.com/oauth/callback"},
+					{Name: "tokenEndpointAuthMethod", FlagName: "token-endpoint-auth-method", Type: "string", Required: false, Example: "none"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -189,6 +192,7 @@ func newSubmitApplicationCmd() *cobra.Command {
 	cmd.Flags().String("description", "", "Description of the OAuth application")
 	cmd.Flags().String("name", "", "Name of the OAuth application")
 	cmd.Flags().String("redirect-uri", "", "OAuth redirect URI")
+	cmd.Flags().String("token-endpoint-auth-method", "", "OAuth token endpoint auth method. 'none' registers a PUBLIC (PKCE-only) client with no secret; omit or 'client_secret_basic'/'client_secret_post' for a confidential client.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -211,6 +215,7 @@ func newUpdateApplicationCmd() *cobra.Command {
 					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "Integration app for accessing Rhombus API"},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "My Integration App"},
 					{Name: "redirectUri", FlagName: "redirect-uri", Type: "string", Required: false, Example: "https://myapp.com/oauth/callback"},
+					{Name: "tokenEndpointAuthMethod", FlagName: "token-endpoint-auth-method", Type: "string", Required: false, Example: "none"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -229,6 +234,7 @@ func newUpdateApplicationCmd() *cobra.Command {
 	cmd.Flags().String("description", "", "Description of the OAuth application")
 	cmd.Flags().String("name", "", "Name of the OAuth application")
 	cmd.Flags().String("redirect-uri", "", "OAuth redirect URI")
+	cmd.Flags().String("token-endpoint-auth-method", "", "OAuth token endpoint auth method. 'none' registers a PUBLIC (PKCE-only) client with no secret; omit or 'client_secret_basic'/'client_secret_post' for a confidential client.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

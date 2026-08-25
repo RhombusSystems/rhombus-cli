@@ -273,6 +273,8 @@ func newUpdateButtonDetailsCmd() *cobra.Command {
 					{Name: "longitude", FlagName: "longitude", Type: "number", Required: false, Example: float64(-122.4194)},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: nil},
 					{Name: "sensorUuid", FlagName: "sensor-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -295,6 +297,8 @@ func newUpdateButtonDetailsCmd() *cobra.Command {
 	cmd.Flags().String("longitude", "", "Optional longitude coordinate")
 	cmd.Flags().String("name", "", "Optional name for the button sensor")
 	cmd.Flags().String("sensor-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether the sub-locations hierarchy key has been updated")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

@@ -51,10 +51,15 @@ func NewPolicyCmd() *cobra.Command {
 	cmd.AddCommand(newGetPolicyAddendumsCmd())
 	cmd.AddCommand(newGetPolicyPauseSettingsCmd())
 	cmd.AddCommand(newGetProximityPoliciesCmd())
+	cmd.AddCommand(newGetTrackPauseSettingsCmd())
 	cmd.AddCommand(newGetVideoIntercomPoliciesCmd())
 	cmd.AddCommand(newPauseAlertPolicyForComponentCompositeCmd())
 	cmd.AddCommand(newPauseAlertPolicyForDeviceCmd())
 	cmd.AddCommand(newPauseAlertPolicyForLocationCmd())
+	cmd.AddCommand(newPauseTrackAlertsCmd())
+	cmd.AddCommand(newPauseTrackAlertsForLocationCmd())
+	cmd.AddCommand(newResumeTrackAlertsCmd())
+	cmd.AddCommand(newResumeTrackAlertsForLocationCmd())
 	cmd.AddCommand(newUpdateAccessControlledDoorPolicyCmd())
 	cmd.AddCommand(newUpdateAudioPolicyCmd())
 	cmd.AddCommand(newUpdateCameraPolicyCmd())
@@ -1201,6 +1206,35 @@ func newGetProximityPoliciesCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetTrackPauseSettingsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-track-pause-settings",
+		Short: "Get track pause settings",
+		Long:  "List active and scheduled per-track alert snoozes across devices and locations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/policy/getTrackPauseSettings", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetVideoIntercomPoliciesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-video-intercom-policies",
@@ -1345,6 +1379,166 @@ func newPauseAlertPolicyForLocationCmd() *cobra.Command {
 	cmd.Flags().String("duration-sec", "", "Duration in seconds to pause alert policies")
 	cmd.Flags().String("location-uuids", "", "List of location UUIDs to pause alert policies for")
 	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds for when to pause alert policies")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newPauseTrackAlertsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pause-track-alerts",
+		Short: "Pause track alerts for a stable track id",
+		Long:  "Pause track alerts for a single reID stableTrackId on a device until duration elapses",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(3600)},
+					{Name: "policyAlertUuid", FlagName: "policy-alert-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "scheduledTimestampSec", FlagName: "scheduled-timestamp-sec", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "trackId", FlagName: "track-id", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/policy/pauseTrackAlerts", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("duration-sec", "", "Duration in seconds to pause track alerts")
+	cmd.Flags().String("policy-alert-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds for when to begin the pause")
+	cmd.Flags().String("track-id", "", "reID stableTrackId to pause track alerts for")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newPauseTrackAlertsForLocationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pause-track-alerts-for-location",
+		Short: "Pause track alerts for a stable track id across a location",
+		Long:  "Pause track alerts for a single reID stableTrackId across a whole location until duration elapses",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(3600)},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "policyAlertUuid", FlagName: "policy-alert-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "scheduledTimestampSec", FlagName: "scheduled-timestamp-sec", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "trackId", FlagName: "track-id", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/policy/pauseTrackAlertsForLocation", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("duration-sec", "", "Duration in seconds to pause track alerts")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("policy-alert-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds for when to begin the pause")
+	cmd.Flags().String("track-id", "", "reID stableTrackId to pause track alerts for")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newResumeTrackAlertsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resume-track-alerts",
+		Short: "Resume track alerts for a stable track id",
+		Long:  "Cancel a previously set per-track alert pause",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(3600)},
+					{Name: "policyAlertUuid", FlagName: "policy-alert-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "scheduledTimestampSec", FlagName: "scheduled-timestamp-sec", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "trackId", FlagName: "track-id", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/policy/resumeTrackAlerts", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("duration-sec", "", "Duration in seconds to pause track alerts")
+	cmd.Flags().String("policy-alert-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds for when to begin the pause")
+	cmd.Flags().String("track-id", "", "reID stableTrackId to pause track alerts for")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newResumeTrackAlertsForLocationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resume-track-alerts-for-location",
+		Short: "Resume track alerts for a stable track id across a location",
+		Long:  "Cancel a previously set per-track location alert pause",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(3600)},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "policyAlertUuid", FlagName: "policy-alert-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "scheduledTimestampSec", FlagName: "scheduled-timestamp-sec", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "trackId", FlagName: "track-id", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/policy/resumeTrackAlertsForLocation", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("duration-sec", "", "Duration in seconds to pause track alerts")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("policy-alert-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds for when to begin the pause")
+	cmd.Flags().String("track-id", "", "reID stableTrackId to pause track alerts for")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

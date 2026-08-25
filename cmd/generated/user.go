@@ -211,6 +211,8 @@ func newUpdateCurrentUserNotificationSettingsCmd() *cobra.Command {
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "receiveHealthNotifications", FlagName: "receive-health-notifications", Type: "boolean", Required: false, Example: nil},
+					{Name: "smsNotificationIncludesLinks", FlagName: "sms-notification-includes-links", Type: "boolean", Required: false, Example: nil},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
 					{Name: "summaryEmailEnabled", FlagName: "summary-email-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "timeFrames", FlagName: "time-frames", Type: "array", Required: false, Example: nil},
@@ -230,6 +232,8 @@ func newUpdateCurrentUserNotificationSettingsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("receive-health-notifications", "", "")
+	cmd.Flags().String("sms-notification-includes-links", "", "")
 	cmd.Flags().String("sms-phone-numbers", "", "")
 	cmd.Flags().String("summary-email-enabled", "", "")
 	cmd.Flags().String("time-frames", "", "")
@@ -255,7 +259,6 @@ func newUpdatePartnerUserCmd() *cobra.Command {
 					{Name: "bypassSaml", FlagName: "bypass-saml", Type: "boolean", Required: false, Example: nil},
 					{Name: "mfaEnabled", FlagName: "mfa-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: nil},
-					{Name: "notificationSettings", FlagName: "notification-settings", Type: "object", Required: false, Example: nil},
 					{Name: "notificationSettingsV2", FlagName: "notification-settings-v2", Type: "object", Required: false, Example: nil},
 					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
@@ -277,7 +280,6 @@ func newUpdatePartnerUserCmd() *cobra.Command {
 	cmd.Flags().String("bypass-saml", "", "")
 	cmd.Flags().String("mfa-enabled", "", "")
 	cmd.Flags().String("name", "", "")
-	cmd.Flags().String("notification-settings", "", "")
 	cmd.Flags().String("notification-settings-v2", "", "")
 	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("sms-phone-numbers", "", "")
@@ -304,6 +306,7 @@ func newUpdatePartnerUserNotificationSettingsCmd() *cobra.Command {
 					{Name: "clientNotificationIntervalsMap", FlagName: "client-notification-intervals-map", Type: "object", Required: false, Example: nil},
 					{Name: "notificationIntervalsForAllClients", FlagName: "notification-intervals-for-all-clients", Type: "array", Required: false, Example: nil},
 					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "smsNotificationIncludesLinks", FlagName: "sms-notification-includes-links", Type: "boolean", Required: false, Example: nil},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
 					{Name: "summaryEmailEnabled", FlagName: "summary-email-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "updatedSetMethodMap", FlagName: "updated-set-method-map", Type: "object", Required: false, Example: nil},
@@ -325,6 +328,7 @@ func newUpdatePartnerUserNotificationSettingsCmd() *cobra.Command {
 	cmd.Flags().String("client-notification-intervals-map", "", "")
 	cmd.Flags().String("notification-intervals-for-all-clients", "", "")
 	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("sms-notification-includes-links", "", "")
 	cmd.Flags().String("sms-phone-numbers", "", "")
 	cmd.Flags().String("summary-email-enabled", "", "")
 	cmd.Flags().String("updated-set-method-map", "", "")
@@ -395,6 +399,7 @@ func newUpdateUserCmd() *cobra.Command {
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "John Doe"},
 					{Name: "notificationIntervalsV2", FlagName: "notification-intervals-v2", Type: "array", Required: false, Example: nil},
 					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "restrictToAllowedLoginIps", FlagName: "restrict-to-allowed-login-ips", Type: "boolean", Required: false, Example: true},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
 					{Name: "summaryEmailEnabled", FlagName: "summary-email-enabled", Type: "boolean", Required: false, Example: true},
 					{Name: "userUuid", FlagName: "user-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
@@ -416,6 +421,7 @@ func newUpdateUserCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "Name of the user")
 	cmd.Flags().String("notification-intervals-v2", "", "List of notification intervals (V2) for the user")
 	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("restrict-to-allowed-login-ips", "", "When true the user's web console sessions are restricted to the org-wide login IP allowlist.")
 	cmd.Flags().String("sms-phone-numbers", "", "List of SMS phone numbers for the user")
 	cmd.Flags().String("summary-email-enabled", "", "Whether summary emails are enabled for the user")
 	cmd.Flags().String("user-uuid", "", "base 64 (url-safe) uuid string")
@@ -437,6 +443,8 @@ func newUpdateUserNotificationSettingsCmd() *cobra.Command {
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "receiveHealthNotifications", FlagName: "receive-health-notifications", Type: "boolean", Required: false, Example: nil},
+					{Name: "smsNotificationIncludesLinks", FlagName: "sms-notification-includes-links", Type: "boolean", Required: false, Example: nil},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
 					{Name: "summaryEmailEnabled", FlagName: "summary-email-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "timeFrames", FlagName: "time-frames", Type: "array", Required: false, Example: nil},
@@ -456,6 +464,8 @@ func newUpdateUserNotificationSettingsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("receive-health-notifications", "", "")
+	cmd.Flags().String("sms-notification-includes-links", "", "")
 	cmd.Flags().String("sms-phone-numbers", "", "")
 	cmd.Flags().String("summary-email-enabled", "", "")
 	cmd.Flags().String("time-frames", "", "")
@@ -483,6 +493,7 @@ func newUpdateUserSelectiveCmd() *cobra.Command {
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: nil},
 					{Name: "notificationIntervalsV2", FlagName: "notification-intervals-v2", Type: "array", Required: false, Example: nil},
 					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "restrictToAllowedLoginIps", FlagName: "restrict-to-allowed-login-ips", Type: "boolean", Required: false, Example: nil},
 					{Name: "smsPhoneNumbers", FlagName: "sms-phone-numbers", Type: "array", Required: false, Example: nil},
 					{Name: "summaryEmailEnabled", FlagName: "summary-email-enabled", Type: "boolean", Required: false, Example: nil},
 					{Name: "userUuid", FlagName: "user-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
@@ -504,6 +515,7 @@ func newUpdateUserSelectiveCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "")
 	cmd.Flags().String("notification-intervals-v2", "", "")
 	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("restrict-to-allowed-login-ips", "", "")
 	cmd.Flags().String("sms-phone-numbers", "", "")
 	cmd.Flags().String("summary-email-enabled", "", "")
 	cmd.Flags().String("user-uuid", "", "base 64 (url-safe) uuid string")

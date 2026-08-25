@@ -19,6 +19,7 @@ func NewPartnerCmd() *cobra.Command {
 	cmd.AddCommand(newCustomizeClientCmd())
 	cmd.AddCommand(newCustomizeClientDeviceCmd())
 	cmd.AddCommand(newDeletePartnerClientCmd())
+	cmd.AddCommand(newGetClaimKeysForPartnerOrgCmd())
 	cmd.AddCommand(newGetClientDevicesCmd())
 	cmd.AddCommand(newGetClientSummaryInfoCmd())
 	cmd.AddCommand(newGetDeviceLicensesForOrgCmd())
@@ -176,6 +177,35 @@ func newDeletePartnerClientCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetClaimKeysForPartnerOrgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-claim-keys-for-partner-org",
+		Short: "Get claim keys for partner organization",
+		Long:  "Get the claim keys associated with the authenticated partner organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/getClaimKeysForPartnerOrg", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

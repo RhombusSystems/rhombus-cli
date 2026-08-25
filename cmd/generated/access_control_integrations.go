@@ -15,6 +15,10 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 		Short: "Access Control Integrations Webservice operations",
 	}
 
+	cmd.AddCommand(newConnectHoneywellElementsCmd())
+	cmd.AddCommand(newConnectHoneywellNetBoxCmd())
+	cmd.AddCommand(newCreateOrUpdateHoneywellNetBoxIntegrationCmd())
+	cmd.AddCommand(newCreateOrUpdateHoneywellOnGuardIntegrationCmd())
 	cmd.AddCommand(newDeleteAmtIntegrationCmd())
 	cmd.AddCommand(newDeleteAvigilonAltaIntegrationV2Cmd())
 	cmd.AddCommand(newDeleteBoulevardIntegrationCmd())
@@ -24,6 +28,9 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteButterflymxIntegrationV2Cmd())
 	cmd.AddCommand(newDeleteGeneaIntegrationCmd())
 	cmd.AddCommand(newDeleteGeneaIntegrationV2Cmd())
+	cmd.AddCommand(newDeleteHoneywellElementsIntegrationCmd())
+	cmd.AddCommand(newDeleteHoneywellNetBoxIntegrationCmd())
+	cmd.AddCommand(newDeleteHoneywellOnGuardIntegrationCmd())
 	cmd.AddCommand(newDeleteInnerRangeIntegrationCmd())
 	cmd.AddCommand(newDeleteKisiIntegrationCmd())
 	cmd.AddCommand(newDeleteKisiIntegrationV2Cmd())
@@ -46,6 +53,13 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetButterflymxPanelsV2Cmd())
 	cmd.AddCommand(newGetGeneaDoorsCmd())
 	cmd.AddCommand(newGetGeneaIntegrationCmd())
+	cmd.AddCommand(newGetHoneywellElementsDevicesCmd())
+	cmd.AddCommand(newGetHoneywellElementsIntegrationCmd())
+	cmd.AddCommand(newGetHoneywellElementsSitesCmd())
+	cmd.AddCommand(newGetHoneywellElementsWebhookConfigCmd())
+	cmd.AddCommand(newGetHoneywellNetBoxIntegrationCmd())
+	cmd.AddCommand(newGetHoneywellNetBoxWebhookConfigCmd())
+	cmd.AddCommand(newGetHoneywellOnGuardIntegrationCmd())
 	cmd.AddCommand(newGetInnerRangeConsolesCmd())
 	cmd.AddCommand(newGetInnerRangeDoorsCmd())
 	cmd.AddCommand(newGetInnerRangeIntegrationCmd())
@@ -62,12 +76,16 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetPdkIntegrationCmd())
 	cmd.AddCommand(newGetPlaceOsDoorsCmd())
 	cmd.AddCommand(newGetPlaceOsIntegrationV2Cmd())
+	cmd.AddCommand(newListHoneywellOnGuardIntegrationsCmd())
 	cmd.AddCommand(newRevertOpenpathLockdownCmd())
 	cmd.AddCommand(newTestBoulevardConnectionCmd())
 	cmd.AddCommand(newTriggerOpenpathLockdownCmd())
 	cmd.AddCommand(newUnlockBrivoDoorCmd())
 	cmd.AddCommand(newUnlockBrivoDoorV2Cmd())
 	cmd.AddCommand(newUnlockGeneaDoorCmd())
+	cmd.AddCommand(newUnlockHoneywellElementsDoorCmd())
+	cmd.AddCommand(newUnlockHoneywellNetBoxDoorCmd())
+	cmd.AddCommand(newUnlockHoneywellOnGuardDoorCmd())
 	cmd.AddCommand(newUnlockInnerRangeDoorCmd())
 	cmd.AddCommand(newUnlockKisiDoorCmd())
 	cmd.AddCommand(newUnlockOpenpathDoorCmd())
@@ -84,6 +102,9 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newUpdateButterflymxIntegrationV2Cmd())
 	cmd.AddCommand(newUpdateGeneaIntegrationCmd())
 	cmd.AddCommand(newUpdateGeneaIntegrationV2Cmd())
+	cmd.AddCommand(newUpdateHoneywellElementsIntegrationCmd())
+	cmd.AddCommand(newUpdateHoneywellNetBoxIntegrationCmd())
+	cmd.AddCommand(newUpdateHoneywellOnGuardIntegrationCmd())
 	cmd.AddCommand(newUpdateInnerRangeIntegrationCmd())
 	cmd.AddCommand(newUpdateKisiIntegrationCmd())
 	cmd.AddCommand(newUpdateKisiIntegrationV2Cmd())
@@ -94,6 +115,147 @@ func NewAccessControlIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newUpdatePdkIntegrationV2Cmd())
 	cmd.AddCommand(newUpdatePlaceOsSettingsCmd())
 	cmd.AddCommand(newUpdatePlaceOsSettingsV2Cmd())
+	cmd.AddCommand(newValidateHoneywellElementsCredentialsCmd())
+	return cmd
+}
+
+func newConnectHoneywellElementsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connect-honeywell-elements",
+		Short: "Connect Honeywell Elements (validate + persist)",
+		Long:  "Step 1 of the Elements setup wizard: validate the API key against Honeywell Elements and persist on success. After this call, subsequent endpoints (sites, devices, update) resolve credentials from the stored row and never require the API key again.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "apiKey", FlagName: "api-key", Type: "string", Required: false, Example: nil},
+					{Name: "baseUrl", FlagName: "base-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/connectHoneywellElements", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("api-key", "", "Honeywell Elements API key to validate and store.")
+	cmd.Flags().String("base-url", "", "Optional Elements API base URL. Defaults to https://api.elementssecure.com.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newConnectHoneywellNetBoxCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connect-honeywell-net-box",
+		Short: "Connect Honeywell NetBox (activate)",
+		Long:  "Activate the Honeywell NetBox integration for the calling org. NetBox is webhook-driven: the on-prem NetBox controller POSTs access events to a Rhombus webhook URL. On first activation the server generates the webhook rhombusToken and returns it (plus the fully-formed webhook URL); subsequent calls preserve the token so the configured forwarder keeps working as the door mapping changes. The request owns the door mapping and optional base URL.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "baseUrl", FlagName: "base-url", Type: "string", Required: false, Example: nil},
+					{Name: "doorInfoMap", FlagName: "door-info-map", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/connectHoneywellNetBox", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("base-url", "", "")
+	cmd.Flags().String("door-info-map", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newCreateOrUpdateHoneywellNetBoxIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-or-update-honeywell-net-box-integration",
+		Short: "Create or update Honeywell NetBox integration (on-prem connector)",
+		Long:  "Activate or update the Honeywell NetBox integration from the on-prem side — the NetBox counterpart of createOrUpdateHoneywellOnGuardIntegration. Called by the Rhombus NetBox connector, which discovers portals via the NetBox GetPortals API and owns the door inventory; the console owns camera/location assignments. First activation (blank rhombusToken, no existing integration) generates the webhook token; re-calls merge the door map by portal key without overwriting console-made assignments, and keys absent from the request are preserved.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "baseUrl", FlagName: "base-url", Type: "string", Required: false, Example: nil},
+					{Name: "doorInfoMap", FlagName: "door-info-map", Type: "object", Required: false, Example: nil},
+					{Name: "rhombusToken", FlagName: "rhombus-token", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/createOrUpdateHoneywellNetBoxIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("base-url", "", "")
+	cmd.Flags().String("door-info-map", "", "")
+	cmd.Flags().String("rhombus-token", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newCreateOrUpdateHoneywellOnGuardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-or-update-honeywell-on-guard-integration",
+		Short: "Create or update the Honeywell OnGuard integration",
+		Long:  "Idempotent activation/update endpoint called by the OnGuard side from its setup tool. Generates the webhook token and pre-shared HMAC secret on first call; preserves both on subsequent calls so the deployed DLL keeps working as the door mapping changes. The request owns the door mapping; behavior flags (face recognition, clip saving, etc.) are managed separately from the Rhombus console.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "displayName", FlagName: "display-name", Type: "string", Required: false, Example: nil},
+					{Name: "doorInfoMap", FlagName: "door-info-map", Type: "object", Required: false, Example: nil},
+					{Name: "rhombusToken", FlagName: "rhombus-token", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/createOrUpdateHoneywellOnGuardIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("display-name", "", "")
+	cmd.Flags().String("door-info-map", "", "")
+	cmd.Flags().String("rhombus-token", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 
@@ -353,6 +515,96 @@ func newDeleteGeneaIntegrationV2Cmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteHoneywellElementsIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-honeywell-elements-integration",
+		Short: "Delete Honeywell Elements integration",
+		Long:  "Delete Honeywell Elements integration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/deleteHoneywellElementsIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteHoneywellNetBoxIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-honeywell-net-box-integration",
+		Short: "Delete Honeywell NetBox integration",
+		Long:  "Delete Honeywell NetBox integration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/deleteHoneywellNetBoxIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteHoneywellOnGuardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-honeywell-on-guard-integration",
+		Short: "Delete Honeywell OnGuard integration",
+		Long:  "Delete Honeywell OnGuard integration. Callable from the Rhombus console (admin) or from the OnGuard side (uninstall). Idempotent per deployment: deleting a rhombusToken that is unknown or already deleted returns success, so the client may safely retry after a network failure.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "rhombusToken", FlagName: "rhombus-token", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/deleteHoneywellOnGuardIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("rhombus-token", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -1029,6 +1281,217 @@ func newGetGeneaIntegrationCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetHoneywellElementsDevicesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-elements-devices",
+		Short: "Get list of Honeywell Elements devices",
+		Long:  "Get list of available Honeywell Elements devices to assign cameras",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "siteId", FlagName: "site-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellElementsDevices", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("site-id", "", "Optional Elements site ID. When omitted, the persisted siteId from the integration row is used.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellElementsIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-elements-integration",
+		Short: "Get Honeywell Elements integration",
+		Long:  "Get Honeywell Elements integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellElementsIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellElementsSitesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-elements-sites",
+		Short: "Get list of Honeywell Elements sites",
+		Long:  "Get list of available Honeywell Elements sites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "apiKey", FlagName: "api-key", Type: "string", Required: false, Example: nil},
+					{Name: "baseUrl", FlagName: "base-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellElementsSites", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("api-key", "", "")
+	cmd.Flags().String("base-url", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellElementsWebhookConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-elements-webhook-config",
+		Short: "Get Honeywell Elements webhook config",
+		Long:  "Returns the callback URL and suggested payload template the customer needs to paste into the Elements admin console when creating their webhook Automation. Elements does not support programmatic webhook creation, so this endpoint is the setup aid instead of a registration call.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellElementsWebhookConfig", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellNetBoxIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-net-box-integration",
+		Short: "Get Honeywell NetBox integration",
+		Long:  "Get Honeywell NetBox integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellNetBoxIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellNetBoxWebhookConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-net-box-webhook-config",
+		Short: "Get Honeywell NetBox webhook config",
+		Long:  "Returns the fully-formed callback URL and a suggested JSON payload template to configure in the Honeywell NetBox webhook forwarder. The integration must be activated (connectHoneywellNetBox) first so a webhook token exists; the returned URL is keyed off that token.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellNetBoxWebhookConfig", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHoneywellOnGuardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-honeywell-on-guard-integration",
+		Short: "Get Honeywell OnGuard integration",
+		Long:  "Get Honeywell OnGuard integration settings, including the webhook URL and pre-shared secret (always retrievable for support/debugging).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/getHoneywellOnGuardIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetInnerRangeConsolesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-inner-range-consoles",
@@ -1515,6 +1978,35 @@ func newGetPlaceOsIntegrationV2Cmd() *cobra.Command {
 	return cmd
 }
 
+func newListHoneywellOnGuardIntegrationsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list-honeywell-on-guard-integrations",
+		Short: "List Honeywell OnGuard deployments",
+		Long:  "List the calling org's OnGuard deployments: one summary per activated deployment (rhombusToken, display name, door count, assigned camera UUIDs). Lets the OnGuard setup tool show what already exists before minting a new deployment, and identifies orphans to pass to deleteHoneywellOnGuardIntegration. Pre-shared secrets are never returned.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/listHoneywellOnGuardIntegrations", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newRevertOpenpathLockdownCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revert-openpath-lockdown",
@@ -1714,6 +2206,108 @@ func newUnlockGeneaDoorCmd() *cobra.Command {
 	}
 	cmd.Flags().String("camera-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("door-id", "", "Genea door ID to unlock")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUnlockHoneywellElementsDoorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unlock-honeywell-elements-door",
+		Short: "Unlock Honeywell Elements door",
+		Long:  "Unlock Honeywell Elements door",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "doorId", FlagName: "door-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/unlockHoneywellElementsDoor", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("door-id", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUnlockHoneywellNetBoxDoorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unlock-honeywell-net-box-door",
+		Short: "Unlock Honeywell NetBox door",
+		Long:  "Publishes an unlock command to the per-org STOMP topic that the NetBox connector subscribes to. Fire-and-forget: returns success once the command is dispatched, the connector performs the actual relay and does not currently report back.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "doorId", FlagName: "door-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/unlockHoneywellNetBoxDoor", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("door-id", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUnlockHoneywellOnGuardDoorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unlock-honeywell-on-guard-door",
+		Short: "Unlock Honeywell OnGuard door",
+		Long:  "Publishes an unlock command to the per-org STOMP topic that the OnGuard connector subscribes to. Fire-and-forget: returns success once the command is dispatched, the connector performs the actual relay and does not currently report back.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "doorId", FlagName: "door-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/unlockHoneywellOnGuardDoor", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("door-id", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -2257,6 +2851,102 @@ func newUpdateGeneaIntegrationV2Cmd() *cobra.Command {
 	return cmd
 }
 
+func newUpdateHoneywellElementsIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-honeywell-elements-integration",
+		Short: "Update Honeywell Elements integration",
+		Long:  "Update Honeywell Elements integration settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "honeywellElementsSettings", FlagName: "honeywell-elements-settings", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/updateHoneywellElementsIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("honeywell-elements-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateHoneywellNetBoxIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-honeywell-net-box-integration",
+		Short: "Update Honeywell NetBox integration",
+		Long:  "Update Honeywell NetBox integration settings (behavior flags, door mapping)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "honeywellNetBoxSettings", FlagName: "honeywell-net-box-settings", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/updateHoneywellNetBoxIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("honeywell-net-box-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateHoneywellOnGuardIntegrationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-honeywell-on-guard-integration",
+		Short: "Update Honeywell OnGuard behavior flags",
+		Long:  "Update Honeywell OnGuard behavior flags (face recognition, clip saving, etc.) and enabled state. Door mapping is owned by OnGuard and ignored on this endpoint.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "honeywellOnGuardSettings", FlagName: "honeywell-on-guard-settings", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/updateHoneywellOnGuardIntegration", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("honeywell-on-guard-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newUpdateInnerRangeIntegrationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-inner-range-integration",
@@ -2572,6 +3262,40 @@ func newUpdatePlaceOsSettingsV2Cmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("place-os-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newValidateHoneywellElementsCredentialsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "validate-honeywell-elements-credentials",
+		Short: "Validate Honeywell Elements API credentials",
+		Long:  "Validate Honeywell Elements API credentials",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "apiKey", FlagName: "api-key", Type: "string", Required: false, Example: nil},
+					{Name: "baseUrl", FlagName: "base-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/accessControl/validateHoneywellElementsCredentials", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("api-key", "", "")
+	cmd.Flags().String("base-url", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
