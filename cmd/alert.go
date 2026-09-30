@@ -17,7 +17,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const mediaBaseURL = "https://mediaapi-v2.rhombussystems.com"
+const (
+	usTokenMediaBaseURL = "https://media.rhombussystems.com"
+	euTokenMediaBaseURL = "https://media.eu.rhombussystems.com"
+	usCertMediaBaseURL  = "https://mediaapi-v2.rhombussystems.com"
+	euCertMediaBaseURL  = "https://mediaapi-v2.eu.rhombussystems.com"
+)
+
+// mediaBaseURLForConfig selects the public media host for token credentials and
+// the mTLS-only media API host for certificate credentials. The media API SNI
+// requires a client certificate, so token profiles cannot use it even though
+// the HTTP layer supports the api-token authentication scheme.
+func mediaBaseURLForConfig(cfg config.Config) string {
+	isEU := config.RegionForEndpoint(cfg.EndpointURL) == config.RegionEU
+	usesClientCert := cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != ""
+
+	if usesClientCert {
+		if isEU {
+			return euCertMediaBaseURL
+		}
+		return usCertMediaBaseURL
+	}
+	if isEU {
+		return euTokenMediaBaseURL
+	}
+	return usTokenMediaBaseURL
+}
 
 func init() {
 	alertCmd := &cobra.Command{
@@ -155,7 +180,7 @@ func runAlertThumbnail(cmd *cobra.Command, args []string) error {
 	}
 
 	region := getAlertRegion(alert, "thumbnailLocation")
-	thumbnailURL := fmt.Sprintf("%s/media/metadata/%s/%s.jpeg", mediaBaseURL, region, alertUuid)
+	thumbnailURL := fmt.Sprintf("%s/media/metadata/%s/%s.jpeg", mediaBaseURLForConfig(cfg), region, alertUuid)
 
 	if outputPath == "" {
 		outputPath = filepath.Join(os.TempDir(), fmt.Sprintf("alert_%s.jpeg", alertUuid))
@@ -185,7 +210,7 @@ func runAlertDownload(cmd *cobra.Command, args []string) error {
 	region := getAlertRegion(alert, "clipLocation")
 
 	clipBaseURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s",
-		mediaBaseURL, deviceUuid, region, alertUuid)
+		mediaBaseURLForConfig(cfg), deviceUuid, region, alertUuid)
 
 	if outputPath == "" {
 		outputPath = fmt.Sprintf("alert_%s.mp4", alertUuid)

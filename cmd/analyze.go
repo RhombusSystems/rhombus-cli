@@ -146,7 +146,7 @@ func runAnalyzeAlert(cmd *cobra.Command, args []string) error {
 
 	region := getAlertRegion(alert, "clipLocation")
 	clipBaseURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s",
-		mediaBaseURL, deviceUuid, region, alertUuid)
+		mediaBaseURLForConfig(cfg), deviceUuid, region, alertUuid)
 
 	if err := downloadAlertClipToFile(cfg, clipBaseURL, clipPath); err != nil {
 		return fmt.Errorf("downloading clip: %w", err)

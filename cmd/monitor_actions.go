@@ -170,7 +170,7 @@ func downloadAlertMedia(ctx context.Context, cfg config.Config, evt alertEvent, 
 
 	// Thumbnail
 	region := getAlertRegion(evt.Alert, "thumbnailLocation")
-	thumbURL := fmt.Sprintf("%s/media/metadata/%s/%s.jpeg", mediaBaseURL, region, evt.UUID)
+	thumbURL := fmt.Sprintf("%s/media/metadata/%s/%s.jpeg", mediaBaseURLForConfig(cfg), region, evt.UUID)
 	thumbPath = filepath.Join(alertDir, "thumbnail.jpeg")
 	if err := downloadWithAuthQuiet(cfg, thumbURL, thumbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "  [action] Thumbnail download failed: %v\n", err)
@@ -180,7 +180,7 @@ func downloadAlertMedia(ctx context.Context, cfg config.Config, evt alertEvent, 
 	// Clip
 	deviceUuid, _ := evt.Alert["deviceUuid"].(string)
 	clipRegion := getAlertRegion(evt.Alert, "clipLocation")
-	clipBaseURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s", mediaBaseURL, deviceUuid, clipRegion, evt.UUID)
+	clipBaseURL := fmt.Sprintf("%s/media/metadata/%s/%s/%s", mediaBaseURLForConfig(cfg), deviceUuid, clipRegion, evt.UUID)
 	clipPath = filepath.Join(alertDir, "clip.mp4")
 	if err := downloadAlertClipToFile(cfg, clipBaseURL, clipPath); err != nil {
 		fmt.Fprintf(os.Stderr, "  [action] Clip download failed: %v\n", err)
