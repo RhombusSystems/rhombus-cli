@@ -30,4 +30,4 @@ Official CLI for the [Rhombus](https://www.rhombus.com) public API — ~60 servi
 
 - API auth guide: <https://www.rhombus.com/auth.md>
 - OpenAPI spec: <https://api2.rhombussystems.com/api/openapi/public.json>
-- Developer docs: <https://api-docs.rhombus.community/>
+- Developer docs: <https://developer.rhombus.com/>
