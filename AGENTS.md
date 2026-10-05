@@ -23,7 +23,7 @@ Guidance for AI coding agents working in this repository or using the `rhombus` 
 
 ## Related resources
 
-- Developer docs: <https://api-docs.rhombus.community/> (LLM index: <https://api-docs.rhombus.community/llms.txt>)
+- Developer docs: <https://developer.rhombus.com/> (LLM index: <https://developer.rhombus.com/llms.txt>)
 - MCP server: <https://github.com/RhombusSystems/rhombus-node-mcp>
 - Python examples: <https://github.com/RhombusSystems/api-examples-python>
-- Community: <https://rhombus.community/>
+- Developer support: <mailto:support@rhombus.com>
