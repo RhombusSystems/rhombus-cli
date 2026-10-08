@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RhombusSystems/rhombus-cli/internal/auth"
 	"github.com/RhombusSystems/rhombus-cli/internal/client"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
 	"github.com/gorilla/websocket"
@@ -20,7 +22,6 @@ import (
 )
 
 const (
-	defaultWSHost     = "ws.rhombussystems.com"
 	defaultWSPort     = "8443"
 	defaultWSPath     = "/websocket"
 	stompVersion      = "1.2"
@@ -100,8 +101,8 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 
-	wsURL := buildWSURL(cfg)
-	headers := buildWSHeaders(cfg)
+	wsCfg := wsAuthConfig(cfg)
+	wsURL := buildWSURL(wsCfg)
 
 	var conn *websocket.Conn
 	defer func() {
@@ -118,7 +119,21 @@ func runMonitor(cmd *cobra.Command, args []string) error {
 	topic := fmt.Sprintf("/topic/change/%s", orgUuid)
 
 	for {
-		conn, err = connectAndSubscribe(wsURL, headers, topic)
+		// Build the auth headers per (re)connect so a refreshed OAuth token is used.
+		headers, err := buildWSHeaders(wsCfg)
+		if err == nil {
+			conn, err = connectAndSubscribe(wsURL, headers, topic)
+			var dialErr *wsDialError
+			if errors.As(err, &dialErr) && dialErr.status == http.StatusUnauthorized {
+				// Refresh the rejected OAuth token before reconnecting.
+				if _, rerr := auth.Retry401(wsCfg, headers); rerr != nil {
+					err = rerr
+				}
+			}
+		}
+		if errors.Is(err, auth.ErrLoginRequired) {
+			return err
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Connection failed: %v\n", err)
 			fmt.Fprintf(os.Stderr, "Reconnecting in 5 seconds...\n")
@@ -169,12 +184,28 @@ func getOrgUuid(cfg config.Config) (string, error) {
 	return uuid, nil
 }
 
+// wsAuthConfig returns the credentials used for the event WebSocket. OAuth
+// profiles use their tokens. The websocket service does not accept cert-based
+// API auth (api / partner-api), so key and cert profiles authenticate with the
+// token-based WS key from an older login when present, else their API key, as a
+// token (api-token / partner-api-token).
+func wsAuthConfig(cfg config.Config) config.Config {
+	if cfg.AuthType == config.AuthTypeOAuth {
+		return cfg
+	}
+	if cfg.WSApiKey != "" {
+		cfg.ApiKey = cfg.WSApiKey
+	}
+	cfg.AuthType = config.AuthTypeToken
+	return cfg
+}
+
 func buildWSURL(cfg config.Config) string {
-	// Derive WS host from API endpoint
-	host := defaultWSHost
+	// The WS host follows the profile's region; custom (staging) endpoints derive it.
+	host := config.WSHostForRegion(cfg.RegionOrDefault())
 	port := defaultWSPort
 
-	if cfg.EndpointURL != "" && cfg.EndpointURL != config.DefaultEndpointURL {
+	if cfg.EndpointURL != "" && config.RegionForEndpoint(cfg.EndpointURL) == "" {
 		if u, err := url.Parse(cfg.EndpointURL); err == nil {
 			// For custom endpoints (e.g. staging), derive WS host
 			apiHost := u.Hostname()
@@ -184,34 +215,33 @@ func buildWSURL(cfg config.Config) string {
 		}
 	}
 
-	// The websocket service only supports token-based API auth (api-token / partner-api-token),
-	// not cert-based (api / partner-api). Pass x-auth-scheme as a query param so the server's
-	// security filter chain matches the request (it checks both headers and query params).
-	// The API key itself is sent as a header in buildWSHeaders.
+	// The scheme is also passed as a query param, which the server's security
+	// filter chain matches as well as the header. Credentials and x-auth-org
+	// travel only as headers (buildWSHeaders).
 	params := url.Values{}
-	if cfg.IsPartner {
-		params.Set("x-auth-scheme", "partner-api-token")
-	} else {
-		params.Set("x-auth-scheme", "api-token")
-	}
-	if cfg.PartnerOrg != "" {
-		params.Set("x-auth-org", cfg.PartnerOrg)
-	}
+	params.Set(auth.HeaderScheme, auth.Scheme(cfg))
 
 	return fmt.Sprintf("wss://%s:%s%s?%s", host, port, defaultWSPath, params.Encode())
 }
 
-func buildWSHeaders(cfg config.Config) http.Header {
-	// The API key must be sent as a header (server reads x-auth-apikey from headers).
-	// Use the token-based WS key if available, since the websocket service doesn't support cert auth.
-	headers := http.Header{}
-	apiKey := cfg.WSApiKey
-	if apiKey == "" {
-		apiKey = cfg.ApiKey
-	}
-	headers.Set("x-auth-apikey", apiKey)
-	return headers
+// buildWSHeaders returns the auth headers for one connection attempt: the scheme,
+// the API key or a fresh OAuth access token, and x-auth-org for a client org.
+func buildWSHeaders(cfg config.Config) (http.Header, error) {
+	return auth.Headers(cfg)
 }
+
+// wsDialError is a failed WebSocket handshake that got an HTTP response.
+type wsDialError struct {
+	err    error
+	status int
+	body   string
+}
+
+func (e *wsDialError) Error() string {
+	return fmt.Sprintf("websocket dial: %v (HTTP %d: %s)", e.err, e.status, e.body)
+}
+
+func (e *wsDialError) Unwrap() error { return e.err }
 
 func connectAndSubscribe(wsURL string, headers http.Header, topic string) (*websocket.Conn, error) {
 	dialer := websocket.Dialer{
@@ -223,7 +253,7 @@ func connectAndSubscribe(wsURL string, headers http.Header, topic string) (*webs
 		if resp != nil {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("websocket dial: %w (HTTP %d: %s)", err, resp.StatusCode, string(body))
+			return nil, &wsDialError{err: err, status: resp.StatusCode, body: string(body)}
 		}
 		return nil, fmt.Errorf("websocket dial: %w", err)
 	}

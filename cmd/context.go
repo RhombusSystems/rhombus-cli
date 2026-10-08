@@ -591,8 +591,6 @@ func downloadStillLAN(cfg config.Config, lanTemplate, fedToken, outputPath strin
 	httpClient, _ := client.GetMediaHTTPClient(cfg)
 	setHeaders := func(req *http.Request) {
 		req.Header.Set("Cookie", "RHOMBUS_SESSIONID=RFT:"+fedToken)
-		req.Header.Set("x-auth-scheme", "api-token")
-		req.Header.Set("x-auth-apikey", cfg.ApiKey)
 	}
 
 	nowSec := time.Now().Unix()
