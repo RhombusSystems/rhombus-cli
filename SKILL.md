@@ -11,7 +11,7 @@ Official CLI for the [Rhombus](https://www.rhombus.com) public API — ~60 servi
 
 1. Install: `brew install RhombusSystems/tap/rhombus` (or see [README](https://github.com/RhombusSystems/rhombus-cli) for shell/PowerShell installers).
 2. Authenticate, either:
-   - `rhombus login` — interactive browser OAuth, stores a key locally; or
+   - `rhombus login` — interactive browser OAuth, stores OAuth tokens locally (refreshed automatically); or
    - set `RHOMBUS_API_KEY` — create a key in the [Rhombus Console](https://console.rhombus.com/settings/api-management).
 
 ## Usage patterns

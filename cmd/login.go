@@ -1,43 +1,40 @@
 package cmd
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/RhombusSystems/rhombus-cli/internal/auth"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	loginCmd.Flags().Int("callback-port", 0, "Fixed loopback port for the OAuth redirect (default: an OS-assigned free port)")
-	loginCmd.Flags().Bool("force", false, "Re-authenticate even if the profile already has an API key")
+	loginCmd.Flags().Bool("force", false, "Log in again even if the profile is already authenticated (converts an API-key or certificate profile to OAuth)")
 	loginCmd.Flags().Bool("force-register", false, "Force dynamic client re-registration even if a client is already saved")
-	loginCmd.Flags().Bool("partner", false, "Authenticate as a partner account (mint a partner-level API key). If omitted, a partner account is auto-detected when org-level minting is denied.")
+	loginCmd.Flags().Bool("partner", false, "Authenticate as a partner account. If omitted, a partner account is auto-detected when org-level access is denied.")
+	loginCmd.Flags().String("region", "", "Rhombus region to log in to: us or eu (default: the profile's endpoint region)")
 	rootCmd.AddCommand(loginCmd)
 }
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with Rhombus via browser login",
-	Long: "Opens a browser window for you to log into Rhombus. Once authenticated, your CLI credentials are configured automatically.\n\n" +
-		"Your logged-in user must have permission to create an API key.",
+	Long: "Opens a browser window for you to log into Rhombus. The profile then stores an OAuth access token and\n" +
+		"refresh token (no API key is created); the CLI refreshes the access token automatically.\n\n" +
+		"Profiles set up with an API key or certificate keep working. Use --force to switch one to OAuth.",
 	RunE: runLogin,
 }
 
@@ -49,22 +46,40 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 	cfg := config.LoadConfig(profile)
 
-	// If this profile already has an API key (from a prior login or `rhombus
-	// configure`), there's nothing to do — logging in would just mint a
-	// redundant key. Require --force to re-authenticate.
+	// Nothing to do if this profile is already authenticated (API key from a prior
+	// login or `rhombus configure`, or OAuth tokens). Require --force to log in again.
 	force, _ := cmd.Flags().GetBool("force")
-	if cfg.ApiKey != "" && !force {
-		fmt.Printf("Profile %q is already authenticated (API key %s).\n", profile, maskKey(cfg.ApiKey))
-		fmt.Println("Nothing to do. Re-run with --force to authenticate again and mint a new API key.")
-		return nil
+	if !force {
+		if cfg.ApiKey != "" {
+			fmt.Printf("Profile %q is already authenticated (API key %s).\n", profile, maskKey(cfg.ApiKey))
+			fmt.Println("Nothing to do. Re-run with --force to switch this profile to browser (OAuth) login.")
+			return nil
+		}
+		if cfg.AuthType == config.AuthTypeOAuth && cfg.OAuthRefreshToken != "" {
+			fmt.Printf("Profile %q is already logged in.\n", profile)
+			fmt.Println("Nothing to do. Re-run with --force to log in again.")
+			return nil
+		}
 	}
 
-	// Resolve region from the profile's configured endpoint so EU customers are
-	// sent to the EU auth/console hosts.
-	region := config.RegionForEndpoint(cfg.EndpointURL)
+	// Resolve the region: --region wins (and repoints the profile's endpoint);
+	// otherwise use the profile's endpoint so EU customers reach the EU hosts.
+	regionFlag, _ := cmd.Flags().GetString("region")
+	regionFlag = strings.ToLower(strings.TrimSpace(regionFlag))
+	if regionFlag != "" && regionFlag != config.RegionUS && regionFlag != config.RegionEU {
+		return fmt.Errorf("invalid --region %q: use us or eu", regionFlag)
+	}
+	region := cfg.RegionOrDefault()
+	apiEndpoint := cfg.EndpointURL
+	if regionFlag != "" {
+		apiEndpoint = config.EndpointForRegion(regionFlag)
+	}
+	regionChanged := regionFlag != "" && regionFlag != region
+	if regionFlag != "" {
+		region = regionFlag
+	}
 	authWebBaseURL := config.AuthWebBaseURLForRegion(region)
 	consoleBaseURL := config.ConsoleBaseURLForRegion(region)
-	apiEndpoint := cfg.EndpointURL
 
 	// Step 1: bind the loopback listener. The Rhombus auth server matches the
 	// registered redirect URI exactly (including port), so we must know the port
@@ -95,13 +110,15 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
 
 	// Step 2: obtain an OAuth client via dynamic client registration. We register
-	// when we have no client, when forced, or when the port differs from the one the
-	// stored client registered its redirect URI with — because that redirect must
-	// carry the exact port we're now listening on.
+	// when we have no client, when forced, when the region changes (clients are
+	// per region), or when the port differs from the one the stored client
+	// registered its redirect URI with — because that redirect must carry the
+	// exact port we're now listening on. New clients are public (PKCE-only, no
+	// secret); a confidential client registered by an older CLI keeps its secret.
 	forceRegister, _ := cmd.Flags().GetBool("force-register")
 	clientID := cfg.OAuthClientID
 	clientSecret := cfg.OAuthClientSecret
-	needsRegister := forceRegister || clientID == "" || clientSecret == "" || cfg.CallbackPort != port
+	needsRegister := forceRegister || clientID == "" || regionChanged || cfg.CallbackPort != port
 	if needsRegister {
 		fmt.Println("Registering OAuth client with Rhombus...")
 		id, secret, err := registerClient(authWebBaseURL, redirectURI)
@@ -153,57 +170,99 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("authentication failed: no authorization code received")
 	}
 
-	// Step 3: exchange the authorization code for an access token.
+	// Step 3: exchange the authorization code for access + refresh tokens.
 	fmt.Println("Exchanging authorization code for token...")
 	token, err := exchangeCodeForToken(authWebBaseURL, clientID, clientSecret, result.code, redirectURI, codeVerifier)
 	if err != nil {
 		return fmt.Errorf("token exchange failed: %w", err)
 	}
-
-	// Step 4: use the OAuth access token to mint a long-lived API key. A
-	// cert-based key (mTLS) is preferred; fall back to a token-based key if the
-	// server cannot issue a cert.
-	//
-	// Partner accounts must mint through the partner endpoint. The org endpoint
-	// authenticates the same OAuth token, but the resulting org-level principal
-	// lacks org API-administration permission, so the server's RBAC layer denies
-	// it with a (bare) HTTP 403. An explicit --partner forces the partner path;
-	// otherwise we try the org path first and, on a 403, retry as a partner.
-	partner, _ := cmd.Flags().GetBool("partner")
-
-	fmt.Println("Minting API key...")
-	_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, true)
-	if err != nil {
-		_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, false)
+	if token.RefreshToken == "" {
+		return fmt.Errorf("token exchange failed: no refresh token in response")
 	}
-	if err != nil && !partner && isForbidden(err) {
-		fmt.Println("Org-level API key was denied (HTTP 403); retrying as a partner account...")
-		partner = true
-		_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, true)
-		if err != nil {
-			_, err = createApiKey(apiEndpoint, token.AccessToken, profile, partner, false)
+
+	// Step 4: find out whether this is a partner account. A partner's token is
+	// denied (HTTP 403) on org-scoped calls; it then must use the partner scheme.
+	// An explicit --partner skips the org check.
+	partner, _ := cmd.Flags().GetBool("partner")
+	partner, err = detectPartner(apiEndpoint, token.AccessToken, partner)
+	if err != nil {
+		return fmt.Errorf("verifying login: %w", err)
+	}
+
+	// Step 5: store the tokens (and the region, when chosen).
+	if regionFlag != "" {
+		if err := config.SaveConfig(profile, "", apiEndpoint); err != nil {
+			return fmt.Errorf("saving endpoint: %w", err)
+		}
+		if err := config.SaveRegion(profile, regionFlag); err != nil {
+			return fmt.Errorf("saving region: %w", err)
 		}
 	}
-	if err != nil {
-		return fmt.Errorf("failed to create API key: %w", err)
-	}
-
-	// Also create a token-based key for services that don't support cert auth (e.g. WebSocket).
-	if tokenKey, tokenErr := createTokenOnlyApiKey(apiEndpoint, token.AccessToken, profile, partner); tokenErr == nil && tokenKey != "" {
-		config.SaveField(profile, "ws_api_key", tokenKey)
+	if err := config.SaveOAuthLogin(profile, config.OAuthTokens{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		ExpiresAt:    auth.ExpiresAt(int64(token.ExpiresIn)),
+	}, partner); err != nil {
+		return fmt.Errorf("saving credentials: %w", err)
 	}
 
 	fmt.Println()
-	fmt.Printf("Successfully logged in! Credentials saved to profile %q.\n", profile)
+	if partner {
+		fmt.Printf("Successfully logged in as a partner account! Credentials saved to profile %q.\n", profile)
+	} else {
+		fmt.Printf("Successfully logged in! Credentials saved to profile %q.\n", profile)
+	}
+	if cfg.ApiKey != "" {
+		fmt.Printf("The API key this profile used before (%s) was removed from the profile but not revoked;\n", maskKey(cfg.ApiKey))
+		fmt.Println("delete it under Settings > API Management in the Rhombus console if nothing else uses it.")
+	}
 	fmt.Println("Run 'rhombus camera get-minimal-camera-state-list' to verify.")
 	return nil
 }
 
-// isForbidden reports whether err originated from an HTTP 403 response. The
-// API-key mint helpers wrap the status as "HTTP <code>: <body>", so a partner
-// account denied at the org endpoint surfaces here as an HTTP 403.
-func isForbidden(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "HTTP 403")
+// detectPartner checks the new access token against the API and reports whether
+// it belongs to a partner account. Unless forcePartner is set it first makes an
+// org-scoped call; an HTTP 403 there means a partner account, confirmed with a
+// partner-scoped call.
+func detectPartner(apiEndpoint, accessToken string, forcePartner bool) (bool, error) {
+	if !forcePartner {
+		status, err := probeOAuth(apiEndpoint, "/api/org/getOrgV2", accessToken, false)
+		if err != nil {
+			return false, err
+		}
+		if status != http.StatusForbidden {
+			return false, nil
+		}
+		fmt.Println("Org-level access was denied (HTTP 403); checking for a partner account...")
+	}
+	if _, err := probeOAuth(apiEndpoint, "/api/partner/getClientsV2", accessToken, true); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// probeOAuth POSTs an empty body to path with the access token. It returns the
+// status for 200 and 403 and an error for anything else.
+func probeOAuth(apiEndpoint, path, accessToken string, partner bool) (int, error) {
+	req, err := http.NewRequest("POST", apiEndpoint+path, strings.NewReader("{}"))
+	if err != nil {
+		return 0, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(auth.HeaderScheme, auth.Scheme(config.Config{AuthType: config.AuthTypeOAuth, IsPartner: partner}))
+	req.Header.Set(auth.HeaderAccessToken, accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusOK || (resp.StatusCode == http.StatusForbidden && !partner) {
+		return resp.StatusCode, nil
+	}
+	return resp.StatusCode, fmt.Errorf("%s: HTTP %d: %s", path, resp.StatusCode, string(body))
 }
 
 type callbackData struct {
@@ -227,14 +286,18 @@ type tokenResponse struct {
 
 // registerClient performs OAuth 2.0 Dynamic Client Registration (RFC 7591) against
 // the auth server's /oauth/register endpoint, so the user does not have to register
-// an OAuth application manually. It returns the newly issued client_id/client_secret;
-// persisting them (so later logins reuse the same client) is the caller's responsibility.
+// an OAuth application manually. The CLI registers as a public client
+// (token_endpoint_auth_method "none", RFC 8252): PKCE protects the code exchange
+// and no client secret is stored. It returns the issued client_id and the
+// client_secret, which is empty unless the server issued one anyway; persisting
+// them (so later logins reuse the same client) is the caller's responsibility.
 func registerClient(authWebBaseURL, redirectURI string) (clientID, clientSecret string, err error) {
 	// Register the exact loopback redirect URI (including port) that this login will
 	// use — the Rhombus auth server matches it exactly at authorize/token time.
 	reqBody := map[string]any{
-		"client_name":   "Rhombus CLI",
-		"redirect_uris": []string{redirectURI},
+		"client_name":                "Rhombus CLI",
+		"redirect_uris":              []string{redirectURI},
+		"token_endpoint_auth_method": "none",
 	}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -270,8 +333,8 @@ func registerClient(authWebBaseURL, redirectURI string) (clientID, clientSecret 
 	if err := json.Unmarshal(body, &reg); err != nil {
 		return "", "", fmt.Errorf("parsing registration response: %w", err)
 	}
-	if reg.ClientID == "" || reg.ClientSecret == "" {
-		return "", "", fmt.Errorf("registration response missing client credentials: %s", string(body))
+	if reg.ClientID == "" {
+		return "", "", fmt.Errorf("registration response missing client_id: %s", string(body))
 	}
 	return reg.ClientID, reg.ClientSecret, nil
 }
@@ -329,10 +392,18 @@ func startCallbackServer(result chan<- callbackData, port int) (net.Listener, in
 // token exchange. The Rhombus auth server's /oauth/token endpoint expects a
 // form-encoded request (application/x-www-form-urlencoded), not JSON.
 //
-// It first authenticates the client via client_secret_basic (HTTP Basic, the
-// common default), and if the server rejects that auth method it retries with
-// client_secret_post (credentials in the form body).
+// A public client (no secret) sends only its client_id in the form body. A
+// confidential client first authenticates via client_secret_basic (HTTP Basic,
+// the common default), and if the server rejects that auth method it retries
+// with client_secret_post (credentials in the form body).
 func exchangeCodeForToken(authWebBaseURL, clientID, clientSecret, code, redirectURI, codeVerifier string) (*tokenResponse, error) {
+	if clientSecret == "" {
+		token, err := requestToken(authWebBaseURL, clientID, "", code, redirectURI, codeVerifier, false)
+		if err != nil && strings.Contains(err.Error(), "invalid_client") {
+			err = fmt.Errorf("%w (re-run with --force-register to register a new client)", err)
+		}
+		return token, err
+	}
 	token, err := requestToken(authWebBaseURL, clientID, clientSecret, code, redirectURI, codeVerifier, true)
 	if err != nil && strings.Contains(err.Error(), "invalid_client") {
 		token, err = requestToken(authWebBaseURL, clientID, clientSecret, code, redirectURI, codeVerifier, false)
@@ -348,11 +419,14 @@ func requestToken(authWebBaseURL, clientID, clientSecret, code, redirectURI, cod
 		"code_verifier": {codeVerifier},
 	}
 	if !useBasicAuth {
-		// client_secret_post: client_id + secret travel in the request body.
-		// (With Basic auth these MUST NOT also appear in the body — RFC 6749 §2.3
-		// forbids using more than one client authentication method per request.)
+		// client_secret_post: client_id + secret travel in the request body; a
+		// public client sends only client_id. (With Basic auth these MUST NOT also
+		// appear in the body — RFC 6749 §2.3 forbids using more than one client
+		// authentication method per request.)
 		form.Set("client_id", clientID)
-		form.Set("client_secret", clientSecret)
+		if clientSecret != "" {
+			form.Set("client_secret", clientSecret)
+		}
 	}
 
 	req, err := http.NewRequest("POST", authWebBaseURL+"/oauth/token", strings.NewReader(form.Encode()))
@@ -395,184 +469,6 @@ func requestToken(authWebBaseURL, clientID, clientSecret, code, redirectURI, cod
 	}
 
 	return &token, nil
-}
-
-// createApiKey uses the OAuth access token to mint a long-lived API key. If
-// partner=true, it uses the partner endpoint. If useCert=true, it generates a
-// CSR for cert-based (mTLS) auth and stores the returned signed cert; otherwise
-// it creates a token-based key.
-func createApiKey(endpointURL, oauthAccessToken, profile string, partner, useCert bool) (string, error) {
-	endpoint := "/api/integrations/org/submitApiTokenApplication"
-	if partner {
-		endpoint = "/api/partner/submitApiTokenApplication"
-	}
-
-	reqBody := map[string]string{
-		"displayName": "Rhombus CLI",
-	}
-
-	var privateKey *ecdsa.PrivateKey
-
-	if useCert {
-		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return "", fmt.Errorf("generating private key: %w", err)
-		}
-		privateKey = key
-
-		csrTemplate := x509.CertificateRequest{
-			Subject: pkix.Name{CommonName: "rhombus-cli"},
-		}
-		csrDER, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, privateKey)
-		if err != nil {
-			return "", fmt.Errorf("creating CSR: %w", err)
-		}
-		csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
-
-		reqBody["authType"] = "CERT"
-		reqBody["csr"] = string(csrPEM)
-	} else {
-		reqBody["authType"] = "API_TOKEN"
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("marshaling request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", endpointURL+endpoint, strings.NewReader(string(jsonBody)))
-	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if partner {
-		req.Header.Set("x-auth-scheme", "partner-api-oauth-token")
-	} else {
-		req.Header.Set("x-auth-scheme", "api-oauth-token")
-	}
-	req.Header.Set("x-auth-access-token", oauthAccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("reading response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		ApiKey   string `json:"apiKey"`
-		Cert     string `json:"cert"`
-		ValidCSR bool   `json:"validCSR"`
-		Error    bool   `json:"error"`
-		ErrorMsg string `json:"errorMsg"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("parsing response: %w", err)
-	}
-
-	if result.Error {
-		return "", fmt.Errorf("%s", result.ErrorMsg)
-	}
-	if result.ApiKey == "" {
-		return "", fmt.Errorf("no API key returned")
-	}
-
-	// Save credentials
-	if useCert && result.Cert != "" && privateKey != nil {
-		certDir := config.ProfileCertDir(profile)
-		if err := os.MkdirAll(certDir, 0700); err != nil {
-			return "", fmt.Errorf("creating cert dir: %w", err)
-		}
-
-		certFile := certDir + "/client.crt"
-		keyFile := certDir + "/client.key"
-
-		keyDER, err := x509.MarshalECPrivateKey(privateKey)
-		if err != nil {
-			return "", fmt.Errorf("marshaling private key: %w", err)
-		}
-		keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
-
-		if err := os.WriteFile(certFile, []byte(result.Cert), 0600); err != nil {
-			return "", fmt.Errorf("writing cert: %w", err)
-		}
-		if err := os.WriteFile(keyFile, keyPEM, 0600); err != nil {
-			return "", fmt.Errorf("writing key: %w", err)
-		}
-
-		if err := config.SaveCertCredentials(profile, result.ApiKey, certFile, keyFile, partner); err != nil {
-			return "", fmt.Errorf("saving credentials: %w", err)
-		}
-	} else {
-		if err := config.SaveTokenCredentials(profile, result.ApiKey, partner); err != nil {
-			return "", fmt.Errorf("saving credentials: %w", err)
-		}
-	}
-
-	return result.ApiKey, nil
-}
-
-// createTokenOnlyApiKey creates a token-based API key for services that don't support cert auth.
-func createTokenOnlyApiKey(endpointURL, oauthAccessToken, profile string, partner bool) (string, error) {
-	endpoint := "/api/integrations/org/submitApiTokenApplication"
-	if partner {
-		endpoint = "/api/partner/submitApiTokenApplication"
-	}
-
-	reqBody := map[string]string{
-		"displayName": "Rhombus CLI (WebSocket)",
-		"authType":    "API_TOKEN",
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest("POST", endpointURL+endpoint, strings.NewReader(string(jsonBody)))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if partner {
-		req.Header.Set("x-auth-scheme", "partner-api-oauth-token")
-	} else {
-		req.Header.Set("x-auth-scheme", "api-oauth-token")
-	}
-	req.Header.Set("x-auth-access-token", oauthAccessToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		ApiKey   string `json:"apiKey"`
-		Error    bool   `json:"error"`
-		ErrorMsg string `json:"errorMsg"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", err
-	}
-	if result.Error {
-		return "", fmt.Errorf("%s", result.ErrorMsg)
-	}
-
-	return result.ApiKey, nil
 }
 
 // PKCE helpers

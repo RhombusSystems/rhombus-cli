@@ -13,7 +13,7 @@ make clean       # Remove binary AND wipe cmd/generated/*.go — re-run `make ge
 
 Requires Go 1.26.1+ (see `go.mod`). Version is injected via ldflags (`-X main.version={{.Version}}`); defaults to "dev" in main.go.
 
-No test suite exists. CGO is disabled (`CGO_ENABLED=0`).
+Tests: `go test ./...`. CGO is disabled (`CGO_ENABLED=0`).
 
 `openapi.json` (~4 MB) is checked in at the repo root and is the source of truth for generated commands. Edits to it require `make generate` to propagate into `cmd/generated/`.
 
@@ -36,6 +36,7 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 
 ### Internal packages
 
+- **`internal/auth`** — Credential headers for every request (REST, media, WebSocket): API key, mTLS, OAuth (`auth_type=oauth`), partner schemes, `x-auth-org`. Refreshes OAuth access tokens under a lock on `~/.rhombus/credentials.lock`.
 - **`internal/client`** — HTTP client with auth handling (API key, mTLS, partner tokens). All API calls go through `APICall(cfg, path, body)`. Verbose logging via `--verbose` flag.
 - **`internal/config`** — Config loading with precedence: CLI flags > env vars (`RHOMBUS_API_KEY`, `RHOMBUS_PROFILE`, `RHOMBUS_OUTPUT`, `RHOMBUS_ENDPOINT_URL`) > profile INI files (`~/.rhombus/config`, `~/.rhombus/credentials`) > defaults.
 - **`internal/output`** — Output formatting. JSON is implemented; table/text are Phase 2 stubs.
@@ -49,7 +50,7 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 
 - Global persistent flags on root: `--profile`, `--output`, `--api-key`, `--endpoint-url`, `--partner-org`, `--verbose`. These are excluded from API request bodies via `CollectFlags`.
 - Partner/multi-tenant: `--partner-org` accepts name or UUID; PersistentPreRunE resolves names to UUIDs via the partner API.
-- Auth modes: token (`x-auth-apikey` header), mTLS (client cert/key with custom PEM parsing for negative serial numbers), OAuth2 browser login.
+- Auth modes: token (`x-auth-apikey` header), mTLS (client cert/key with custom PEM parsing for negative serial numbers), OAuth2 browser login (stores access + refresh tokens; public PKCE client, no secret).
 - WebSocket monitoring uses STOMP 1.2 protocol with heartbeats and reconnection.
 
 ### Release

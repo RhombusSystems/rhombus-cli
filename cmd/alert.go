@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RhombusSystems/rhombus-cli/internal/auth"
 	"github.com/RhombusSystems/rhombus-cli/internal/client"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -24,15 +25,14 @@ const (
 	euCertMediaBaseURL  = "https://mediaapi-v2.eu.rhombussystems.com"
 )
 
-// mediaBaseURLForConfig selects the public media host for token credentials and
+// mediaBaseURLForConfig selects the public media host for token and OAuth credentials and
 // the mTLS-only media API host for certificate credentials. The media API SNI
 // requires a client certificate, so token profiles cannot use it even though
 // the HTTP layer supports the api-token authentication scheme.
 func mediaBaseURLForConfig(cfg config.Config) string {
 	isEU := config.RegionForEndpoint(cfg.EndpointURL) == config.RegionEU
-	usesClientCert := cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != ""
 
-	if usesClientCert {
+	if auth.UsesClientCert(cfg) {
 		if isEU {
 			return euCertMediaBaseURL
 		}
@@ -274,10 +274,10 @@ func runAlertDownload(cmd *cobra.Command, args []string) error {
 
 // mediaURIForAuth rewrites a public dash.rhombussystems.com media URI to the
 // dash-internal host only when the profile uses cert-based (mTLS) auth. The
-// dash-internal host requires a client certificate; token-auth profiles must
-// keep the public dash host, which authenticates via the x-auth-apikey header.
+// dash-internal host requires a client certificate; token and OAuth profiles must
+// keep the public dash host, which authenticates via the auth headers.
 func mediaURIForAuth(cfg config.Config, uri string) string {
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+	if auth.UsesClientCert(cfg) {
 		return strings.Replace(uri, ".dash.rhombussystems.com", ".dash-internal.rhombussystems.com", 1)
 	}
 	return uri
@@ -288,21 +288,8 @@ func downloadWithAuthQuiet(cfg config.Config, mediaURL, outputPath string) error
 	if err != nil {
 		return err
 	}
-	req.Header.Set("x-auth-apikey", cfg.ApiKey)
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api")
-		} else {
-			req.Header.Set("x-auth-scheme", "api")
-		}
-	} else {
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api-token")
-		} else {
-			req.Header.Set("x-auth-scheme", "api-token")
-		}
-	}
 
+	// The media client adds the profile's auth headers.
 	httpClient, err := client.GetMediaHTTPClient(cfg)
 	if err != nil {
 		return err
@@ -361,7 +348,6 @@ func runAlertPlay(cmd *cobra.Command, args []string) error {
 	fmt.Println("Press Ctrl+C to stop.")
 
 	select {}
-	return nil
 }
 
 func getAlertDetails(cfg config.Config, alertUuid string) (map[string]any, error) {
@@ -474,22 +460,8 @@ func downloadWithAuth(cfg config.Config, mediaURL, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("x-auth-apikey", cfg.ApiKey)
 
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api")
-		} else {
-			req.Header.Set("x-auth-scheme", "api")
-		}
-	} else {
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api-token")
-		} else {
-			req.Header.Set("x-auth-scheme", "api-token")
-		}
-	}
-
+	// The media client adds the profile's auth headers.
 	httpClient, err := client.GetMediaHTTPClient(cfg)
 	if err != nil {
 		return err

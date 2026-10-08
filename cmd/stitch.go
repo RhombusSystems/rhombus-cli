@@ -361,23 +361,19 @@ func downloadVODClipLAN(cfg config.Config, lanTemplate string, startSec, duratio
 
 	setHeaders := func(req *http.Request) {
 		req.Header.Set("Cookie", "RHOMBUS_SESSIONID=RFT:"+fedToken)
-		req.Header.Set("x-auth-scheme", "api-token")
-		req.Header.Set("x-auth-apikey", cfg.ApiKey)
 	}
 	httpClient, _ := client.GetMediaHTTPClient(cfg)
 	return downloadVODClipFromMPD(httpClient, mpdURL, durationSec, outputPath, setHeaders)
 }
 
-// downloadVODClipWAN downloads a VOD clip via WAN using cert-based auth on dash-internal.
-// WAN templates use {START_TIME}/{DURATION}/vod/file.mpd format.
+// downloadVODClipWAN downloads a VOD clip via WAN with the profile's credentials
+// (cert-based auth on dash-internal for cert profiles). WAN templates use
+// {START_TIME}/{DURATION}/vod/file.mpd format.
 func downloadVODClipWAN(cfg config.Config, wanTemplate string, startSec, durationSec int64, outputPath string) error {
 	mpdURL := strings.Replace(wanTemplate, "{START_TIME}", fmt.Sprintf("%d", startSec), 1)
 	mpdURL = strings.Replace(mpdURL, "{DURATION}", fmt.Sprintf("%d", durationSec), 1)
 
-	setHeaders := func(req *http.Request) {
-		req.Header.Set("x-auth-scheme", "api")
-		req.Header.Set("x-auth-apikey", cfg.ApiKey)
-	}
+	setHeaders := func(req *http.Request) {} // the media client adds the auth headers
 	httpClient, _ := client.GetMediaHTTPClient(cfg)
 	return downloadVODClipFromMPD(httpClient, mpdURL, durationSec, outputPath, setHeaders)
 }
