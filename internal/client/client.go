@@ -12,6 +12,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/RhombusSystems/rhombus-cli/internal/auth"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
 )
 
@@ -21,77 +22,79 @@ var (
 )
 
 func APICall(cfg config.Config, path string, body map[string]any) (map[string]any, error) {
-	if cfg.ApiKey == "" {
-		return nil, fmt.Errorf("no API key configured. Run 'rhombus login' or 'rhombus configure'")
-	}
-
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	url := cfg.EndpointURL + path
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-auth-apikey", cfg.ApiKey)
-
-	// Set partner org header if specified
-	if cfg.PartnerOrg != "" {
-		req.Header.Set("x-auth-org", cfg.PartnerOrg)
-	}
-
-	var client *http.Client
-
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+	client := http.DefaultClient
+	if auth.UsesClientCert(cfg) {
 		// mTLS cert-based auth
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api")
-		} else {
-			req.Header.Set("x-auth-scheme", "api")
-		}
 		client, err = getCertClient(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("loading client certificate: %w", err)
 		}
-	} else {
-		// Token-based auth
-		if cfg.IsPartner {
-			req.Header.Set("x-auth-scheme", "partner-api-token")
-		} else {
-			req.Header.Set("x-auth-scheme", "api-token")
-		}
-		client = http.DefaultClient
 	}
 
-	if cfg.Verbose {
-		fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL)
-		for k, vals := range req.Header {
-			for _, v := range vals {
-				if k == "X-Auth-Apikey" {
-					if len(v) > 4 {
-						v = "****" + v[len(v)-4:]
+	url := cfg.EndpointURL + path
+	var resp *http.Response
+	var respBody []byte
+	// An OAuth token the server rejects (HTTP 401) is refreshed and the request
+	// retried once.
+	for attempt := 0; ; attempt++ {
+		authHeaders, err := auth.Headers(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		for k, v := range authHeaders {
+			req.Header[k] = v
+		}
+
+		if cfg.Verbose {
+			fmt.Fprintf(os.Stderr, "> %s %s\n", req.Method, req.URL)
+			for k, vals := range req.Header {
+				for _, v := range vals {
+					if k == "X-Auth-Apikey" || k == "X-Auth-Access-Token" {
+						if len(v) > 4 {
+							v = "****" + v[len(v)-4:]
+						}
 					}
+					fmt.Fprintf(os.Stderr, "> %s: %s\n", k, v)
 				}
-				fmt.Fprintf(os.Stderr, "> %s: %s\n", k, v)
+			}
+			fmt.Fprintf(os.Stderr, ">\n> %s\n>\n", string(jsonBody))
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("request failed: %w", err)
+		}
+		respBody, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized && attempt == 0 {
+			retry, err := auth.Retry401(cfg, authHeaders)
+			if err != nil {
+				return nil, err
+			}
+			if retry {
+				if cfg.Verbose {
+					fmt.Fprintf(os.Stderr, "< HTTP %s (refreshed OAuth token, retrying)\n", resp.Status)
+				}
+				continue
 			}
 		}
-		fmt.Fprintf(os.Stderr, ">\n> %s\n>\n", string(jsonBody))
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		break
 	}
 
 	if cfg.Verbose {
@@ -120,7 +123,7 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 
 // GetHTTPClient returns the appropriate HTTP client for the given config (mTLS or default).
 func GetHTTPClient(cfg config.Config) (*http.Client, error) {
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+	if auth.UsesClientCert(cfg) {
 		return getCertClient(cfg.CertFile, cfg.KeyFile)
 	}
 	return http.DefaultClient, nil
@@ -128,9 +131,11 @@ func GetHTTPClient(cfg config.Config) (*http.Client, error) {
 
 // GetMediaHTTPClient returns an HTTP client for media server requests.
 // The media server uses a self-signed cert, so TLS verification is relaxed.
-// Uses mTLS client cert when available.
+// Uses mTLS client cert when available. Every request carries the profile's
+// credential headers (see auth.Transport); callers add only request-specific
+// headers such as a LAN federated-token cookie.
 func GetMediaHTTPClient(cfg config.Config) (*http.Client, error) {
-	if cfg.AuthType == config.AuthTypeCert && cfg.CertFile != "" && cfg.KeyFile != "" {
+	if auth.UsesClientCert(cfg) {
 		certPEM, err := os.ReadFile(cfg.CertFile)
 		if err != nil {
 			return nil, fmt.Errorf("reading cert file: %w", err)
@@ -158,21 +163,21 @@ func GetMediaHTTPClient(cfg config.Config) (*http.Client, error) {
 		}
 
 		return &http.Client{
-			Transport: &http.Transport{
+			Transport: &auth.Transport{Cfg: cfg, Base: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					Certificates:       []tls.Certificate{cert},
 					InsecureSkipVerify: true,
 				},
-			},
+			}},
 		}, nil
 	}
 
 	return &http.Client{
-		Transport: &http.Transport{
+		Transport: &auth.Transport{Cfg: cfg, Base: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
-		},
+		}},
 	}, nil
 }
 

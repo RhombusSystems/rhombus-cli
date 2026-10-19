@@ -42,7 +42,13 @@ make install
 rhombus login
 ```
 
-Opens your browser for OAuth2 authentication, then creates and stores an API key locally. Supports both certificate-based (mTLS) and token-based auth.
+Opens your browser for OAuth2 authentication and stores an OAuth access token and refresh token for the profile. No API key is created; the CLI refreshes the access token automatically. If the login expires or is revoked, commands ask you to run `rhombus login` again.
+
+EU accounts add `--region eu` (stored on the profile, so API, auth and WebSocket calls use the EU hosts):
+
+```sh
+rhombus login --region eu
+```
 
 For partner accounts, add `--partner`:
 
@@ -50,7 +56,9 @@ For partner accounts, add `--partner`:
 rhombus login --partner
 ```
 
-If you omit the flag, the CLI mints an org-level key first and automatically falls back to a partner-level key when the org attempt is denied — so `--partner` is only needed to skip that fallback.
+If you omit the flag, the CLI checks org-level access first and automatically switches to partner mode when it is denied — so `--partner` is only needed to skip that check.
+
+Profiles set up with an API key or certificate (by `rhombus configure` or an older `rhombus login`) keep working unchanged. `rhombus login --force` switches such a profile to OAuth; the old API key is removed from the profile but not revoked, so delete it in the console if nothing else uses it.
 
 ### Manual configuration
 
@@ -260,8 +268,8 @@ Note: `--partner-org` selects which client org a command *operates on*; to *auth
 | Path | Purpose |
 |---|---|
 | `~/.rhombus/config` | Default output format, endpoint URL (INI) |
-| `~/.rhombus/credentials` | API keys and cert paths per profile (INI, 600 perms) |
-| `~/.rhombus/certs/<profile>/` | Client certificates and private keys |
+| `~/.rhombus/credentials` | OAuth tokens, API keys and cert paths per profile (INI, 600 perms) |
+| `~/.rhombus/certs/<profile>/` | Client certificates and private keys (certificate profiles from older logins) |
 
 ## Configuration precedence
 
