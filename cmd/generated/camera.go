@@ -59,7 +59,9 @@ func NewCameraCmd() *cobra.Command {
 	cmd.AddCommand(newGetMinimalCameraStateListCmd())
 	cmd.AddCommand(newGetStorageRecoveryFileCmd())
 	cmd.AddCommand(newGetUptimeWindowsCmd())
+	cmd.AddCommand(newGetUptimeWindowsForOrgCmd())
 	cmd.AddCommand(newGetVideoWallsCmd())
+	cmd.AddCommand(newPtzMoveCameraCmd())
 	cmd.AddCommand(newRebootCameraCmd())
 	cmd.AddCommand(newRevertCameraSettingsToDefaultsCmd())
 	cmd.AddCommand(newRevertDayImageSettingsToDefaultsCmd())
@@ -1592,8 +1594,8 @@ func newGetUptimeWindowsCmd() *cobra.Command {
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "endTime", FlagName: "end-time", Type: "integer", Required: false, Example: int64(1641081600)},
-					{Name: "startTime", FlagName: "start-time", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "endTime", FlagName: "end-time", Type: "integer", Required: false, Example: int64(1641081600000)},
+					{Name: "startTime", FlagName: "start-time", Type: "integer", Required: false, Example: int64(1640995200000)},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -1608,8 +1610,44 @@ func newGetUptimeWindowsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("camera-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("end-time", "", "End time in seconds since epoch")
-	cmd.Flags().String("start-time", "", "Start time in seconds since epoch")
+	cmd.Flags().String("end-time", "", "End time in milliseconds since epoch")
+	cmd.Flags().String("start-time", "", "Start time in milliseconds since epoch")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetUptimeWindowsForOrgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-uptime-windows-for-org",
+		Short: "Get camera uptime windows in batch",
+		Long:  "Get uptime windows for all (or selected) cameras in the organization in a single call",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuids", FlagName: "device-uuids", Type: "array", Required: false, Example: nil},
+					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1643673600000)},
+					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/getUptimeWindowsForOrg", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuids", "", "Optional list of device UUIDs to include. When omitted or empty, all devices of the endpoint's type in the organization are included.")
+	cmd.Flags().String("end-time-ms", "", "End time in milliseconds since epoch")
+	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds since epoch")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -1639,6 +1677,44 @@ func newGetVideoWallsCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newPtzMoveCameraCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ptz-move-camera",
+		Short: "PTZ move",
+		Long:  "Move a first-party mechanical PTZ camera by permyriad delta",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "xmovementPermyriad", FlagName: "xmovement-permyriad", Type: "integer", Required: false, Example: int64(1000)},
+					{Name: "ymovementPermyriad", FlagName: "ymovement-permyriad", Type: "integer", Required: false, Example: int64(1000)},
+					{Name: "zmovementPermyriad", FlagName: "zmovement-permyriad", Type: "integer", Required: false, Example: int64(1000)},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/ptzMove", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("xmovement-permyriad", "", "X-axis movement in permyriad units")
+	cmd.Flags().String("ymovement-permyriad", "", "Y-axis movement in permyriad units")
+	cmd.Flags().String("zmovement-permyriad", "", "Z-axis movement in permyriad units")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -1952,7 +2028,7 @@ func newUpdateCameraDetailsV2Cmd() *cobra.Command {
 					{Name: "nameUpdated", FlagName: "name-updated", Type: "boolean", Required: false, Example: false},
 					{Name: "policyUuid", FlagName: "policy-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "policyUuidUpdated", FlagName: "policy-uuid-updated", Type: "boolean", Required: false, Example: false},
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
 					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
@@ -1992,7 +2068,7 @@ func newUpdateCameraDetailsV2Cmd() *cobra.Command {
 	cmd.Flags().String("name-updated", "", "Whether name was updated")
 	cmd.Flags().String("policy-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("policy-uuid-updated", "", "Whether policy UUID was updated")
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether sub-locations hierarchy key was updated")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")

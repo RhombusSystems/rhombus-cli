@@ -26,6 +26,7 @@ func NewAccessControlCmd() *cobra.Command {
 	cmd.AddCommand(newCreateWiegandCredentialCmd())
 	cmd.AddCommand(newCreateWiegandD10202CredentialCmd())
 	cmd.AddCommand(newCreateWiegandH10301CredentialCmd())
+	cmd.AddCommand(newCreateWiegandH10302CredentialCmd())
 	cmd.AddCommand(newCreateWiegandH10304CredentialCmd())
 	cmd.AddCommand(newCreateWiegand64BitRawCredentialCmd())
 	cmd.AddCommand(newCreate35BitCorp1000StdCredentialCmd())
@@ -35,6 +36,7 @@ func NewAccessControlCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteLocationAccessGrantCmd())
 	cmd.AddCommand(newDeleteLocationAccessRevocationCmd())
 	cmd.AddCommand(newDeleteUnassignedAccessControlCredentialCmd())
+	cmd.AddCommand(newFindAccessControlCredentialByGuestPassCmd())
 	cmd.AddCommand(newFindAccessControlCredentialByOrgCmd())
 	cmd.AddCommand(newFindAccessControlCredentialByUserCmd())
 	cmd.AddCommand(newFindAccessControlCredentialByUsersCmd())
@@ -61,6 +63,7 @@ func NewAccessControlCmd() *cobra.Command {
 	cmd.AddCommand(newFindLocationAccessRevocationsByGroupCmd())
 	cmd.AddCommand(newFindLocationAccessRevocationsByOrgCmd())
 	cmd.AddCommand(newFindLocationAccessRevocationsByUserCmd())
+	cmd.AddCommand(newGetAccessControlCredentialDetailsCmd())
 	cmd.AddCommand(newGetLocationAccessGrantCmd())
 	cmd.AddCommand(newGetLocationAccessRevocationCmd())
 	cmd.AddCommand(newGetRhombusSecureCsnCredentialDetailsCmd())
@@ -498,6 +501,44 @@ func newCreateWiegandH10301CredentialCmd() *cobra.Command {
 	return cmd
 }
 
+func newCreateWiegandH10302CredentialCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-wiegand-h10302-credential",
+		Short: "Create H10302 Wiegand credential",
+		Long:  "Create a H10302 wiegand credential",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cardNumber", FlagName: "card-number", Type: "integer", Required: false, Example: int64(456789)},
+					{Name: "endDateEpochSecExclusive", FlagName: "end-date-epoch-sec-exclusive", Type: "integer", Required: false, Example: int64(1672531200)},
+					{Name: "startDateEpochSecInclusive", FlagName: "start-date-epoch-sec-inclusive", Type: "integer", Required: false, Example: int64(1640995200)},
+					{Name: "userUuid", FlagName: "user-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/accesscontrol/createWiegandH10302Credential", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("card-number", "", "Card number (35-bit, no facility code)")
+	cmd.Flags().String("end-date-epoch-sec-exclusive", "", "End date in epoch seconds (exclusive)")
+	cmd.Flags().String("start-date-epoch-sec-inclusive", "", "Start date in epoch seconds (inclusive)")
+	cmd.Flags().String("user-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newCreateWiegandH10304CredentialCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-wiegand-h10304-credential",
@@ -811,6 +852,40 @@ func newDeleteUnassignedAccessControlCredentialCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("credential-hex-value", "", "Hex value of the credential to delete")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newFindAccessControlCredentialByGuestPassCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-access-control-credential-by-guest-pass",
+		Short: "Find access control credentials by guest pass",
+		Long:  "Find all access control credentials assigned to the specified guest pass",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "filter", FlagName: "filter", Type: "object", Required: false, Example: nil},
+					{Name: "guestPassUuid", FlagName: "guest-pass-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/accesscontrol/findAccessControlCredentialByGuestPass", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("filter", "", "")
+	cmd.Flags().String("guest-pass-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -1653,6 +1728,38 @@ func newFindLocationAccessRevocationsByUserCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetAccessControlCredentialDetailsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-access-control-credential-details",
+		Short: "Get access control credential details",
+		Long:  "Retrieves an access control credential of any type, including sensitive details, by UUID.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "credentialUuid", FlagName: "credential-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/accesscontrol/getAccessControlCredentialDetails", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("credential-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetLocationAccessGrantCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-location-access-grant",
@@ -1721,7 +1828,7 @@ func newGetRhombusSecureCsnCredentialDetailsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-rhombus-secure-csn-credential-details",
 		Short: "Get Rhombus Secure CSN credential details",
-		Long:  "Retrieves a rhombus secure csn credential including sensitive details",
+		Long:  "Retrieves a rhombus secure csn credential including sensitive details. Deprecated: use getAccessControlCredentialDetails.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)
@@ -1753,7 +1860,7 @@ func newGetStandardCsnCredentialDetailsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-standard-csn-credential-details",
 		Short: "Get standard CSN credential details",
-		Long:  "Retrieves a standard csn credential including sensitive details",
+		Long:  "Retrieves a standard csn credential including sensitive details. Deprecated: use getAccessControlCredentialDetails.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)

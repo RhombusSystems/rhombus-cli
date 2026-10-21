@@ -17,9 +17,11 @@ func NewOrgCmd() *cobra.Command {
 
 	cmd.AddCommand(newClaimActivationTokenCmd())
 	cmd.AddCommand(newClaimShipmentRegistrationTokenCmd())
+	cmd.AddCommand(newCreateOrUpdateHealthNotificationRuleCmd())
 	cmd.AddCommand(newCreatePendingRegistrationCmd())
 	cmd.AddCommand(newDEPRECATED_getOrgIntegrationsCmd())
 	cmd.AddCommand(newDeleteCloudArchivingConfigCmd())
+	cmd.AddCommand(newDeleteHealthNotificationRuleCmd())
 	cmd.AddCommand(newDeleteKeypadLogoCmd())
 	cmd.AddCommand(newDeleteRhombusKeyLogoCmd())
 	cmd.AddCommand(newFindAllHardwareWithPendingRegistrationCmd())
@@ -30,6 +32,7 @@ func NewOrgCmd() *cobra.Command {
 	cmd.AddCommand(newGetClientOrgCmd())
 	cmd.AddCommand(newGetCloudArchivingConfigsCmd())
 	cmd.AddCommand(newGetFeaturesCmd())
+	cmd.AddCommand(newGetHealthNotificationRulesCmd())
 	cmd.AddCommand(newGetOrgCmd())
 	cmd.AddCommand(newGetOrgNotificationTemplateCmd())
 	cmd.AddCommand(newGetOrgNotificationTemplateV2Cmd())
@@ -46,6 +49,7 @@ func NewOrgCmd() *cobra.Command {
 	cmd.AddCommand(newUpdateCloudArchivingConfigCmd())
 	cmd.AddCommand(newUpdateFirmwareSettingsCmd())
 	cmd.AddCommand(newUpdateGeneralSettingsCmd())
+	cmd.AddCommand(newUpdateLoginIpAllowlistCmd())
 	cmd.AddCommand(newUpdateMFASettingsCmd())
 	cmd.AddCommand(newUpdateOrgCmd())
 	cmd.AddCommand(newUpdateOrgAudioAnalysisPolicyCmd())
@@ -53,6 +57,7 @@ func NewOrgCmd() *cobra.Command {
 	cmd.AddCommand(newUpdateOrgLLMUsagePolicyCmd())
 	cmd.AddCommand(newUpdateOrgNotificationTemplateCmd())
 	cmd.AddCommand(newUpdateOrgNotificationTemplateV2Cmd())
+	cmd.AddCommand(newUpdatePaneLinksCmd())
 	cmd.AddCommand(newUpdatePendingRegistrationCmd())
 	cmd.AddCommand(newUpdateSAMLSettingsCmd())
 	cmd.AddCommand(newUpdateSAMLSettingsV2Cmd())
@@ -125,6 +130,38 @@ func newClaimShipmentRegistrationTokenCmd() *cobra.Command {
 	}
 	cmd.Flags().String("claim-list", "", "")
 	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newCreateOrUpdateHealthNotificationRuleCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-or-update-health-notification-rule",
+		Short: "Create or update health notification rule",
+		Long:  "Create or update a time/size-based health notification rule.  Omit ruleUuid to create a new rule",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "rule", FlagName: "rule", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/org/createOrUpdateHealthNotificationRule", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("rule", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -228,6 +265,38 @@ func newDeleteCloudArchivingConfigCmd() *cobra.Command {
 	}
 	cmd.Flags().String("scope", "", "")
 	cmd.Flags().String("target-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteHealthNotificationRuleCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-health-notification-rule",
+		Short: "Delete health notification rule",
+		Long:  "Delete a time/size-based health notification rule",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "ruleUuid", FlagName: "rule-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/org/deleteHealthNotificationRule", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("rule-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -429,6 +498,7 @@ func newGenerateFederatedSessionTokenCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUUid", FlagName: "device-u-uid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
 					{Name: "domain", FlagName: "domain", Type: "string", Required: false, Example: ".rhombus.com"},
 					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(3600)},
 				})
@@ -444,6 +514,7 @@ func newGenerateFederatedSessionTokenCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("device-u-uid", "", "RUUID with optional appended facet information")
 	cmd.Flags().String("domain", "", "The domain that is allowed to use the federated token. The token should begin with a 'dot' and end with a domain suffix. The validation will perform an 'endsWith' operation of the domain supplied by the Referrer header")
 	cmd.Flags().String("duration-sec", "", "Duration of the federated session token in seconds")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
@@ -530,6 +601,35 @@ func newGetFeaturesCmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/org/getFeatures", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHealthNotificationRulesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-health-notification-rules",
+		Short: "Get health notification rules",
+		Long:  "Get all time/size-based health notification rules for the organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/org/getHealthNotificationRules", body)
 			if err != nil {
 				return err
 			}
@@ -1020,8 +1120,10 @@ func newUpdateGeneralSettingsCmd() *cobra.Command {
 					{Name: "accountOwnerEmail", FlagName: "account-owner-email", Type: "string", Required: false, Example: "owner@acme.com"},
 					{Name: "accountTechnicalContactEmail", FlagName: "account-technical-contact-email", Type: "string", Required: false, Example: "tech@acme.com"},
 					{Name: "accountTechnicalContacts", FlagName: "account-technical-contacts", Type: "array", Required: false, Example: nil},
+					{Name: "connectivityBatchWindowSecs", FlagName: "connectivity-batch-window-secs", Type: "integer", Required: false, Example: int64(300)},
 					{Name: "defaultPlayerViewLiveType", FlagName: "default-player-view-live-type", Type: "string", Required: false, Example: nil},
 					{Name: "inactivityTimeout", FlagName: "inactivity-timeout", Type: "integer", Required: false, Example: int64(30)},
+					{Name: "mobileSessionLimitInDays", FlagName: "mobile-session-limit-in-days", Type: "integer", Required: false, Example: int64(30)},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Acme Corporation"},
 					{Name: "uapSettings", FlagName: "uap-settings", Type: "object", Required: false, Example: nil},
 				})
@@ -1041,10 +1143,44 @@ func newUpdateGeneralSettingsCmd() *cobra.Command {
 	cmd.Flags().String("account-owner-email", "", "Email of the account owner")
 	cmd.Flags().String("account-technical-contact-email", "", "Email of the account technical contact")
 	cmd.Flags().String("account-technical-contacts", "", "List of account technical contact emails")
+	cmd.Flags().String("connectivity-batch-window-secs", "", "Window in seconds over which device connectivity notifications are batched into a single digest; null or 0 disables batching")
 	cmd.Flags().String("default-player-view-live-type", "", "")
 	cmd.Flags().String("inactivity-timeout", "", "Inactivity timeout in minutes")
+	cmd.Flags().String("mobile-session-limit-in-days", "", "Mobile session length in days (1-365); sessions older than this are invalidated and the mobile apps re-authenticate")
 	cmd.Flags().String("name", "", "Name of the organization")
 	cmd.Flags().String("uap-settings", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateLoginIpAllowlistCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-login-ip-allowlist",
+		Short: "Update login IP allowlist",
+		Long:  "Update the org-wide login IP allowlist that users flagged with restrictToAllowedLoginIps are limited to",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "allowedLoginIpRanges", FlagName: "allowed-login-ip-ranges", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/org/updateLoginIpAllowlist", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("allowed-login-ip-ranges", "", "IP addresses / CIDR ranges that users flagged with restrictToAllowedLoginIps may use the web console from. An empty list clears the allowlist (and lifts the restriction until ranges are configured again).")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -1275,6 +1411,38 @@ func newUpdateOrgNotificationTemplateV2Cmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary-email-enabled", "", "Whether summary email is enabled")
 	cmd.Flags().String("template-update", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdatePaneLinksCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-pane-links",
+		Short: "Update the PANE apps this org links",
+		Long:  "Replace the set of PANE proof-of-concept apps surfaced in this organization's console navigation. Send the complete set; an empty list removes them all.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "paneLinks", FlagName: "pane-links", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/org/updatePaneLinks", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("pane-links", "", "The complete set of PANE apps this organization links, replacing any current set. An empty list removes them all.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

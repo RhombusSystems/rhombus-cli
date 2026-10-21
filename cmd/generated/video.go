@@ -20,7 +20,9 @@ func NewVideoCmd() *cobra.Command {
 	cmd.AddCommand(newCreateSharedTimelapseGroupCmd())
 	cmd.AddCommand(newDeleteSharedTimelapseGroupCmd())
 	cmd.AddCommand(newDeleteTimelapseClipsCmd())
+	cmd.AddCommand(newGenerateRangedTimelapseClipCmd())
 	cmd.AddCommand(newGenerateTimelapseClipCmd())
+	cmd.AddCommand(newGetExactFrameDataCmd())
 	cmd.AddCommand(newGetExactFrameUriCmd())
 	cmd.AddCommand(newGetMaxSpliceDurationCmd())
 	cmd.AddCommand(newGetSharedTimelapseGroupsCmd())
@@ -211,6 +213,48 @@ func newDeleteTimelapseClipsCmd() *cobra.Command {
 	return cmd
 }
 
+func newGenerateRangedTimelapseClipCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate-ranged-timelapse-clip",
+		Short: "Generate ranged timelapse clip",
+		Long:  "Generate a timelapse where each device facet contributes footage only during its own time ranges.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: nil},
+					{Name: "drawCameraDetails", FlagName: "draw-camera-details", Type: "boolean", Required: false, Example: true},
+					{Name: "drawTimestamp", FlagName: "draw-timestamp", Type: "boolean", Required: false, Example: true},
+					{Name: "sources", FlagName: "sources", Type: "array", Required: true, Example: nil},
+					{Name: "title", FlagName: "title", Type: "string", Required: false, Example: "Subject Tour 2026-04-21"},
+					{Name: "videoDuration", FlagName: "video-duration", Type: "integer", Required: true, Example: int64(60)},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/video/generateRangedTimelapseClip", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("description", "", "Description for the timelapse")
+	cmd.Flags().String("draw-camera-details", "", "Whether to draw camera details on the video")
+	cmd.Flags().String("draw-timestamp", "", "Whether to draw timestamps on the video")
+	cmd.Flags().String("sources", "", "One entry per device facet. Each carries its own list of time ranges.")
+	cmd.Flags().String("title", "", "Title for the timelapse")
+	cmd.Flags().String("video-duration", "", "Duration in seconds for the output video")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGenerateTimelapseClipCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate-timelapse-clip",
@@ -248,7 +292,7 @@ func newGenerateTimelapseClipCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("description", "", "Description for the timelapse")
-	cmd.Flags().String("device-uuids", "", "List of device UUIDs to include in the timelapse")
+	cmd.Flags().String("device-uuids", "", "List of device facet UUIDs to include in the timelapse. UUIDs without a facet defined will default to facet v0")
 	cmd.Flags().String("draw-camera-details", "", "Whether to draw camera details on the video")
 	cmd.Flags().String("draw-timestamp", "", "Whether to draw timestamps on the video")
 	cmd.Flags().String("skip-nights", "", "Whether to skip night time periods")
@@ -258,6 +302,50 @@ func newGenerateTimelapseClipCmd() *cobra.Command {
 	cmd.Flags().String("title", "", "Title for the timelapse")
 	cmd.Flags().String("video-duration", "", "Duration in seconds for the output video")
 	cmd.Flags().String("video-format", "", "Format for the output video")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetExactFrameDataCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-exact-frame-data",
+		Short: "Get exact frame data",
+		Long:  "Fetches and return bytes in base64 format of an the frame at the given timestamp for a device. Use this instead of getExactFrameUri if, for whatever reason, either the URI is not useful or the client is unable to hit the media servers",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "downscaleFactor", FlagName: "downscale-factor", Type: "integer", Required: false, Example: nil},
+					{Name: "permyriadCropHeight", FlagName: "permyriad-crop-height", Type: "integer", Required: false, Example: nil},
+					{Name: "permyriadCropWidth", FlagName: "permyriad-crop-width", Type: "integer", Required: false, Example: nil},
+					{Name: "permyriadCropX", FlagName: "permyriad-crop-x", Type: "integer", Required: false, Example: nil},
+					{Name: "permyriadCropY", FlagName: "permyriad-crop-y", Type: "integer", Required: false, Example: nil},
+					{Name: "timestampMs", FlagName: "timestamp-ms", Type: "integer", Required: true, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/video/getExactFrameData", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("downscale-factor", "", "Ratio to shrink the image pixels by. Defaults to 1 (full resolution).")
+	cmd.Flags().String("permyriad-crop-height", "", "Precise ratio to crop the height by. Capped at 10000, which is 100.00% of the image")
+	cmd.Flags().String("permyriad-crop-width", "", "Precise ratio to crop the width by. Capped at 10000, which is 100.00% of the image")
+	cmd.Flags().String("permyriad-crop-x", "", "Proportional location to start horizontal crop at. Where 10000 is 100.00% of, or the end of the image")
+	cmd.Flags().String("permyriad-crop-y", "", "Proportional location to start vertical crop at. Where 10000 is 100.00% of, or the end of the image")
+	cmd.Flags().String("timestamp-ms", "", "Timestamp in epoch milliseconds")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -650,6 +738,7 @@ func newSpliceV3Cmd() *cobra.Command {
 					{Name: "audioIncluded", FlagName: "audio-included", Type: "boolean", Required: false, Example: true},
 					{Name: "clipVisibility", FlagName: "clip-visibility", Type: "string", Required: false, Example: nil},
 					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "Review of security incident from main entrance"},
+					{Name: "deviceIntervalMap", FlagName: "device-interval-map", Type: "object", Required: false, Example: nil},
 					{Name: "deviceUuids", FlagName: "device-uuids", Type: "array", Required: false, Example: nil},
 					{Name: "durationSec", FlagName: "duration-sec", Type: "integer", Required: false, Example: int64(60)},
 					{Name: "integrationUploadMap", FlagName: "integration-upload-map", Type: "object", Required: false, Example: nil},
@@ -676,6 +765,7 @@ func newSpliceV3Cmd() *cobra.Command {
 	cmd.Flags().String("audio-included", "", "Whether to include audio in the clip")
 	cmd.Flags().String("clip-visibility", "", "")
 	cmd.Flags().String("description", "", "Description for the spliced clip")
+	cmd.Flags().String("device-interval-map", "", "Optional map of device facet UUIDs to a list of time intervals (start/end millis) for multi-interval splicing. When provided and non-empty, the request is treated as multi-interval and the top-level startTimeMillis/durationSec are ignored. The sum of all interval durations across all devices is capped at 60 minutes, and each interval must be at least 1 second long.")
 	cmd.Flags().String("device-uuids", "", "List of device facet UUIDs to splice video from")
 	cmd.Flags().String("duration-sec", "", "Duration in seconds for the splice")
 	cmd.Flags().String("integration-upload-map", "", "Map of integration names to upload flags")

@@ -18,13 +18,17 @@ func NewLicenseCmd() *cobra.Command {
 	cmd.AddCommand(newAssignACUDoorLicenseCmd())
 	cmd.AddCommand(newAssignAlertMonitoringLicenseCmd())
 	cmd.AddCommand(newAssignDeviceLicenseCmd())
+	cmd.AddCommand(newAssignGuestManagementLicenseCmd())
 	cmd.AddCommand(newAssignLicenseCmd())
+	cmd.AddCommand(newFindAssignedLicensesByLocationCmd())
 	cmd.AddCommand(newGetACUDoorLicensesCmd())
 	cmd.AddCommand(newGetACUDoorLicensesForClientOrgCmd())
 	cmd.AddCommand(newGetAlertMonitoringLicensesCmd())
 	cmd.AddCommand(newGetAlertMonitoringLicensesForClientOrgCmd())
 	cmd.AddCommand(newGetDeviceLicensesCmd())
 	cmd.AddCommand(newGetDeviceLicensesForClientOrgCmd())
+	cmd.AddCommand(newGetGuestManagementLicensesCmd())
+	cmd.AddCommand(newGetGuestManagementLicensesForClientOrgCmd())
 	cmd.AddCommand(newGetLicensesCmd())
 	cmd.AddCommand(newGetLicensesForClientOrgCmd())
 	return cmd
@@ -132,6 +136,40 @@ func newAssignDeviceLicenseCmd() *cobra.Command {
 	return cmd
 }
 
+func newAssignGuestManagementLicenseCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "assign-guest-management-license",
+		Short: "Assign guest management license",
+		Long:  "Assign guest management license",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "licenseUuid", FlagName: "license-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/license/assignGuestManagementLicense", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("license-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newAssignLicenseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "assign-license",
@@ -161,6 +199,40 @@ func newAssignLicenseCmd() *cobra.Command {
 	}
 	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("license-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newFindAssignedLicensesByLocationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-assigned-licenses-by-location",
+		Short: "Find assigned licenses by location",
+		Long:  "Find all licenses assigned to a location",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeSubLocations", FlagName: "include-sub-locations", Type: "boolean", Required: false, Example: nil},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/license/findAssignedLicensesByLocation", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("include-sub-locations", "", "Whether to also include licenses assigned to sub locations of the location")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -340,6 +412,67 @@ func newGetDeviceLicensesForClientOrgCmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/license/getDeviceLicensesForClientOrg", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetGuestManagementLicensesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-guest-management-licenses",
+		Short: "Get guest management licenses",
+		Long:  "Get list of guest management licenses available in organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/license/getGuestManagementLicenses", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetGuestManagementLicensesForClientOrgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-guest-management-licenses-for-client-org",
+		Short: "Get guest management licenses for client org",
+		Long:  "Get list of guest management licenses available for a client organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/license/getGuestManagementLicensesForClientOrg", body)
 			if err != nil {
 				return err
 			}

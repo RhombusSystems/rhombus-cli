@@ -291,6 +291,7 @@ func newTriggerPromptCmd() *cobra.Command {
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "deviceFacetUuid", FlagName: "device-facet-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "multiImageTimeDeltasSeconds", FlagName: "multi-image-time-deltas-seconds", Type: "array", Required: false, Example: nil},
 					{Name: "prompt", FlagName: "prompt", Type: "string", Required: false, Example: "Count people in the scene"},
 					{Name: "promptType", FlagName: "prompt-type", Type: "string", Required: false, Example: nil},
 					{Name: "region", FlagName: "region", Type: "object", Required: false, Example: nil},
@@ -309,6 +310,7 @@ func newTriggerPromptCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("device-facet-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("multi-image-time-deltas-seconds", "", "Optional list of time deltas in seconds (relative to timestampMs) for multi-image mode. Max 5 entries, each in range [-30, 3600]. When non-empty, the prompt runs against a set of frames: the base image at timestampMs (always included) plus one frame per distinct non-zero delta. Duplicates and 0 are deduped. Omit or send null/empty for single-image mode.")
 	cmd.Flags().String("prompt", "", "Prompt text to trigger")
 	cmd.Flags().String("prompt-type", "", "")
 	cmd.Flags().String("region", "", "")

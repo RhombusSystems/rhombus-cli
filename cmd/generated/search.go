@@ -116,6 +116,7 @@ func newSearchSimilarObjectEmbeddingsCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeVector", FlagName: "include-vector", Type: "boolean", Required: false, Example: nil},
 					{Name: "maxNumResults", FlagName: "max-num-results", Type: "integer", Required: false, Example: nil},
 					{Name: "model", FlagName: "model", Type: "string", Required: true, Example: nil},
 					{Name: "objectTypeFilter", FlagName: "object-type-filter", Type: "array", Required: false, Example: nil},
@@ -138,6 +139,7 @@ func newSearchSimilarObjectEmbeddingsCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("include-vector", "", "Whether to include the embedding vector in the response.")
 	cmd.Flags().String("max-num-results", "", "Optional number of results to return. Setting to larger numbers will increase latency.")
 	cmd.Flags().String("model", "", "")
 	cmd.Flags().String("object-type-filter", "", "Optional object type filter to narrow results to only vehicles or only humans.")
@@ -164,9 +166,11 @@ func newSearchSimilarObjectEmbeddingsByTextCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeVector", FlagName: "include-vector", Type: "boolean", Required: false, Example: nil},
 					{Name: "maxNumResults", FlagName: "max-num-results", Type: "integer", Required: false, Example: nil},
 					{Name: "model", FlagName: "model", Type: "string", Required: true, Example: nil},
 					{Name: "objectTypeFilter", FlagName: "object-type-filter", Type: "array", Required: false, Example: nil},
+					{Name: "onlyMatches", FlagName: "only-matches", Type: "boolean", Required: false, Example: nil},
 					{Name: "queryDeviceUuids", FlagName: "query-device-uuids", Type: "array", Required: false, Example: nil},
 					{Name: "queryEndTimeMs", FlagName: "query-end-time-ms", Type: "integer", Required: true, Example: nil},
 					{Name: "queryStartTimeMs", FlagName: "query-start-time-ms", Type: "integer", Required: true, Example: nil},
@@ -186,9 +190,11 @@ func newSearchSimilarObjectEmbeddingsByTextCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("include-vector", "", "Whether to include the embedding vector in the response.")
 	cmd.Flags().String("max-num-results", "", "Optional number of results to return. Setting to larger numbers will increase latency.")
 	cmd.Flags().String("model", "", "")
-	cmd.Flags().String("object-type-filter", "", "Optional object type filter to narrow results to only vehicles or only humans.")
+	cmd.Flags().String("object-type-filter", "", "Optional object type filter. Provide explicit type values to narrow results, or omit to search all object types. Pass the single value \"AUTO\" to have the server infer the object type (humans or vehicles) from the search text.")
+	cmd.Flags().String("only-matches", "", "Only applies to models that classify results as matches: when true (default) return only actual matches; when false return all results within the similarity threshold.")
 	cmd.Flags().String("query-device-uuids", "", "Optional list of device uuids to filter result set on.")
 	cmd.Flags().String("query-end-time-ms", "", "End time in epoch milliseconds. Results returned will have occurred before this time.")
 	cmd.Flags().String("query-start-time-ms", "", "Start time in epoch milliseconds. Results returned will have occurred after this time.")
