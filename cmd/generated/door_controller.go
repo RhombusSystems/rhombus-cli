@@ -77,6 +77,8 @@ func newUpdateDoorControllerDetailsCmd() *cobra.Command {
 					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "longitude", FlagName: "longitude", Type: "number", Required: false, Example: float64(-118.2437)},
 					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Main Entrance Controller"},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
 					{Name: "uuid", FlagName: "uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
@@ -98,6 +100,8 @@ func newUpdateDoorControllerDetailsCmd() *cobra.Command {
 	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("longitude", "", "Longitude coordinate of the door controller")
 	cmd.Flags().String("name", "", "Name of the door controller")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether the sub-locations hierarchy key has been updated")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")

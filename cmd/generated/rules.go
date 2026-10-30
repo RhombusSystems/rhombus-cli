@@ -16,12 +16,16 @@ func NewRulesCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCreateRuleCmd())
+	cmd.AddCommand(newDeleteIncomingWebhookTokenCmd())
 	cmd.AddCommand(newDeleteRuleCmd())
 	cmd.AddCommand(newDeleteRulePauseSettingCmd())
+	cmd.AddCommand(newGenerateIncomingWebhookTokenCmd())
 	cmd.AddCommand(newGetRulePauseSettingsCmd())
 	cmd.AddCommand(newGetRulesFilteredCmd())
 	cmd.AddCommand(newGetRulesForOrgCmd())
 	cmd.AddCommand(newPauseRuleCmd())
+	cmd.AddCommand(newRevealWebhookSecretsCmd())
+	cmd.AddCommand(newRules_rotateWebhookSecretCmd())
 	cmd.AddCommand(newUpdateRuleCmd())
 	return cmd
 }
@@ -53,6 +57,38 @@ func newCreateRuleCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("rule", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newDeleteIncomingWebhookTokenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-incoming-webhook-token",
+		Short: "Delete incoming webhook trigger token",
+		Long:  "Delete an incoming webhook trigger token so its URL no longer fires rules",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "webhookToken", FlagName: "webhook-token", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/rules/deleteIncomingWebhookToken", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("webhook-token", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -117,6 +153,38 @@ func newDeleteRulePauseSettingCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGenerateIncomingWebhookTokenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate-incoming-webhook-token",
+		Short: "Generate incoming webhook trigger token",
+		Long:  "Generate a token and public URL that fires INCOMING_WEBHOOK_EVENT rule triggers when requested",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "displayName", FlagName: "display-name", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/rules/generateIncomingWebhookToken", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("display-name", "", "Optional display name for the webhook token, shown in api token listings")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -245,6 +313,72 @@ func newPauseRuleCmd() *cobra.Command {
 	cmd.Flags().String("duration-sec", "", "Duration to pause the rule in seconds")
 	cmd.Flags().String("rule-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("scheduled-timestamp-sec", "", "Scheduled timestamp in seconds when the pause should take effect")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRevealWebhookSecretsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reveal-webhook-secrets",
+		Short: "Reveal rule webhook secrets",
+		Long:  "Return the shared secret of each webhook action on a rule, keyed by webhook URL, giving one to any webhook action that has none. Requires integration administration; audited.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "ruleUuid", FlagName: "rule-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/rules/revealWebhookSecrets", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("rule-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRules_rotateWebhookSecretCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rules_rotate-webhook-secret",
+		Short: "Rotate rule webhook secret",
+		Long:  "Give a rule's webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours. Works for every rule type. Requires integration administration; audited.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "ruleUuid", FlagName: "rule-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "webhookUrl", FlagName: "webhook-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/rules/rotateWebhookSecret", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("rule-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("webhook-url", "", "URL of the rule's webhook action whose secret to rotate")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

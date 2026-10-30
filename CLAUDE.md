@@ -15,7 +15,7 @@ Requires Go 1.26.1+ (see `go.mod`). Version is injected via ldflags (`-X main.ve
 
 Tests: `go test ./...`. CGO is disabled (`CGO_ENABLED=0`).
 
-`openapi.json` (~4 MB) is checked in at the repo root and is the source of truth for generated commands. Edits to it require `make generate` to propagate into `cmd/generated/`.
+`openapi.json` (~8 MB) is checked in at the repo root and is the source of truth for generated commands. Edits to it require `make generate` to propagate into `cmd/generated/`.
 
 ### Runtime external dependencies
 
@@ -30,7 +30,7 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 
 ### Two kinds of commands
 
-1. **Auto-generated API commands** (`cmd/generated/`): 62 service files generated from `openapi.json` by the codegen tool (`go run ./codegen/ <spec> <outdir>`). Every operation follows the same pattern: load config → collect flags → merge `--cli-input-json` → POST to `/api/<resource>/<operation>` → format output. Do not hand-edit these files.
+1. **Auto-generated API commands** (`cmd/generated/`): 67 service files generated from `openapi.json` by the codegen tool (`go run ./codegen/ <spec> <outdir>`). Every operation follows the same pattern: load config → collect flags → merge `--cli-input-json` → POST to `/api/<resource>/<operation>` → format output. Do not hand-edit these files.
 
 2. **Manual commands** (`cmd/`): Complex features that need custom UX — alert management, live footage, WebSocket monitoring, video stitching (ffmpeg), frame analysis, deployment context, AI chat/voice. File map: `alert.go`, `footage.go`, `monitor.go` + `monitor_actions.go`, `stitch.go`, `analyze.go`, `context.go`, `chat.go`, `voice.go`, `configure.go`, `login.go`, plus `root.go` (persistent flags + command registration).
 

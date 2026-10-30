@@ -29,6 +29,7 @@ func NewIncidentManagementIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetDiceIntegrationCmd())
 	cmd.AddCommand(newGetInformacastIntegrationCmd())
 	cmd.AddCommand(newGetInformacastScenariosCmd())
+	cmd.AddCommand(newGetInformacastSitesCmd())
 	cmd.AddCommand(newGetLumeoIntegrationCmd())
 	cmd.AddCommand(newGetMicrosoftTeamsIntegrationCmd())
 	cmd.AddCommand(newGetMicrosoftUsersJoinedTeamsCmd())
@@ -447,6 +448,35 @@ func newGetInformacastScenariosCmd() *cobra.Command {
 				return err
 			}
 			result, err := client.APICall(cfg, "/api/integrations/incidentManagement/getInformacastScenarios", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetInformacastSitesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-informacast-sites",
+		Short: "Get Informacast Sites",
+		Long:  "Get Informacast sites for mapping Rhombus locations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/incidentManagement/getInformacastSites", body)
 			if err != nil {
 				return err
 			}

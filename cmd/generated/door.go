@@ -38,6 +38,7 @@ func newGetDoorEventsForSensorCmd() *cobra.Command {
 					{Name: "createdBeforeMs", FlagName: "created-before-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
 					{Name: "limit", FlagName: "limit", Type: "integer", Required: false, Example: int64(100)},
 					{Name: "sensorUuid", FlagName: "sensor-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "stateChangedOnly", FlagName: "state-changed-only", Type: "boolean", Required: false, Example: nil},
 					{Name: "stateFilter", FlagName: "state-filter", Type: "string", Required: false, Example: nil},
 				})
 			}
@@ -56,6 +57,7 @@ func newGetDoorEventsForSensorCmd() *cobra.Command {
 	cmd.Flags().String("created-before-ms", "", "Timestamp in milliseconds to get events created before this time")
 	cmd.Flags().String("limit", "", "Maximum number of events to return")
 	cmd.Flags().String("sensor-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("state-changed-only", "", "When true, only return events where the door state actually changed (open/close transitions), excluding the periodic heartbeat events that report an unchanged state")
 	cmd.Flags().String("state-filter", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
@@ -157,7 +159,7 @@ func newUpdateDoorSensorDetailsCmd() *cobra.Command {
 					{Name: "nameUpdated", FlagName: "name-updated", Type: "boolean", Required: false, Example: true},
 					{Name: "policyUuid", FlagName: "policy-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "policyUuidUpdated", FlagName: "policy-uuid-updated", Type: "boolean", Required: false, Example: false},
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
 					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
@@ -191,7 +193,7 @@ func newUpdateDoorSensorDetailsCmd() *cobra.Command {
 	cmd.Flags().String("name-updated", "", "Whether the name has been updated")
 	cmd.Flags().String("policy-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("policy-uuid-updated", "", "Whether the policy UUID has been updated")
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
 	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether the sub-locations hierarchy key has been updated")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
