@@ -109,7 +109,7 @@ rhombus <command> [subcommand] [flags]
 
 ### Generated API commands
 
-62 resource commands are auto-generated from the Rhombus OpenAPI spec, covering the full API surface. Examples:
+67 resource commands are auto-generated from the Rhombus OpenAPI spec, covering the full API surface. Examples:
 
 ```sh
 # List all cameras

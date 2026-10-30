@@ -18,6 +18,7 @@ func NewUserMetadataCmd() *cobra.Command {
 	cmd.AddCommand(newCreateUserMetadataFieldTemplateCmd())
 	cmd.AddCommand(newDeleteUserMetadataFieldCmd())
 	cmd.AddCommand(newDeleteUserMetadataFieldTemplateCmd())
+	cmd.AddCommand(newFindAllUserMetadataFieldsByOrgCmd())
 	cmd.AddCommand(newFindUserMetadataFieldTemplatesCmd())
 	cmd.AddCommand(newFindUserMetadataFieldsCmd())
 	cmd.AddCommand(newSaveUserMetadataFieldsCmd())
@@ -118,6 +119,35 @@ func newDeleteUserMetadataFieldTemplateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("template-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newFindAllUserMetadataFieldsByOrgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-all-user-metadata-fields-by-org",
+		Short: "Find all user metadata fields in the org",
+		Long:  "Returns the org template metadata fields and every user's stored values for those fields, keyed by user uuid and then by template uuid. For callers that need the whole org at once, such as a user report, rather than one user at a time.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/user/metadata/findAllUserMetadataFieldsByOrg", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

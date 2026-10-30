@@ -15,27 +15,111 @@ func NewPartnerCmd() *cobra.Command {
 		Short: "Partner Webservice operations",
 	}
 
+	cmd.AddCommand(newAssignLicensesToClientCmd())
+	cmd.AddCommand(newClaimLicensesToPoolCmd())
 	cmd.AddCommand(newCreatePartnerClientCmd())
 	cmd.AddCommand(newCustomizeClientCmd())
 	cmd.AddCommand(newCustomizeClientDeviceCmd())
+	cmd.AddCommand(newDeactivateClientCmd())
 	cmd.AddCommand(newDeletePartnerClientCmd())
+	cmd.AddCommand(newGetClaimKeysForPartnerOrgCmd())
 	cmd.AddCommand(newGetClientDevicesCmd())
 	cmd.AddCommand(newGetClientSummaryInfoCmd())
 	cmd.AddCommand(newGetDeviceLicensesForOrgCmd())
+	cmd.AddCommand(newGetHardwareInventoryCmd())
+	cmd.AddCommand(newGetLicensePoolCmd())
 	cmd.AddCommand(newGetLicensesForOrgCmd())
 	cmd.AddCommand(newGetListOfAllClientDevicesCmd())
 	cmd.AddCommand(newGetListOfControlledHardwareCmd())
 	cmd.AddCommand(newGetPartnerClientsCmd())
 	cmd.AddCommand(newGetPartnerClientsStatusMapCmd())
 	cmd.AddCommand(newGetPartnerClientsV2Cmd())
+	cmd.AddCommand(newGetPartnerOrgProfileCmd())
+	cmd.AddCommand(newGetPoolClaimKeyByCodeCmd())
+	cmd.AddCommand(newMoveHardwareToClientCmd())
 	cmd.AddCommand(newPartnerGetShipmentsCmd())
 	cmd.AddCommand(newPartner_getApiTokenApplicationsCmd())
 	cmd.AddCommand(newPartner_getApiTokensCmd())
+	cmd.AddCommand(newPartner_renewApiTokenCertCmd())
 	cmd.AddCommand(newPartner_revokeApiTokenCmd())
+	cmd.AddCommand(newPartner_rotateApiTokenCmd())
+	cmd.AddCommand(newPartner_submitApiTokenApplicationCmd())
 	cmd.AddCommand(newReassignDeviceOrgCmd())
+	cmd.AddCommand(newReclaimLicensesFromClientCmd())
 	cmd.AddCommand(newRegisterCameraToClientCmd())
 	cmd.AddCommand(newRegisterDealCmd())
+	cmd.AddCommand(newUpdateManagedClientPolicyCmd())
 	cmd.AddCommand(newUpdateManuallySendLicenseExpirationEmailCmd())
+	return cmd
+}
+
+func newAssignLicensesToClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "assign-licenses-to-client",
+		Short: "Assign pool licenses to a managed client",
+		Long:  "MSP only. Moves N unassigned pool licenses of a product to a managed client org. Term dates are unchanged. Idempotent by requestId.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "clientOrgUuid", FlagName: "client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "productCode", FlagName: "product-code", Type: "string", Required: false, Example: nil},
+					{Name: "quantity", FlagName: "quantity", Type: "integer", Required: false, Example: nil},
+					{Name: "requestId", FlagName: "request-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/assignToClient", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("product-code", "", "")
+	cmd.Flags().String("quantity", "", "")
+	cmd.Flags().String("request-id", "", "Idempotency key; retries with the same id are safe.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newClaimLicensesToPoolCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-licenses-to-pool",
+		Short: "Claim licenses into the MSP pool",
+		Long:  "MSP only. Claims a key into the MSP's own org with the MSP recorded as owner, so the licenses can later be assigned to managed clients.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "claimCode", FlagName: "claim-code", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/claimToPool", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("claim-code", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 
@@ -51,6 +135,7 @@ func newCreatePartnerClientCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "allowDuplicateName", FlagName: "allow-duplicate-name", Type: "boolean", Required: false, Example: nil},
 					{Name: "clientContactEmail", FlagName: "client-contact-email", Type: "string", Required: false, Example: "john.smith@acme.com"},
 					{Name: "clientContactName", FlagName: "client-contact-name", Type: "string", Required: false, Example: "John Smith"},
 					{Name: "clientOrgName", FlagName: "client-org-name", Type: "string", Required: false, Example: "Acme Corporation"},
@@ -68,6 +153,7 @@ func newCreatePartnerClientCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("allow-duplicate-name", "", "MSP initiative (D8): create even if this MSP already manages an org with the same name (case-insensitive). Default false.")
 	cmd.Flags().String("client-contact-email", "", "Email address of the client contact person")
 	cmd.Flags().String("client-contact-name", "", "Name of the client contact person")
 	cmd.Flags().String("client-org-name", "", "Name of the client organization")
@@ -149,6 +235,40 @@ func newCustomizeClientDeviceCmd() *cobra.Command {
 	return cmd
 }
 
+func newDeactivateClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deactivate-client",
+		Short: "Deactivate managed client",
+		Long:  "MSP only. Soft-deletes a managed client org after a typed name confirmation. Refused while devices are registered or MSP-owned licenses are assigned; unassigned pooled licenses are reclaimed first; every session in the client org is ended; the MSP's authority row is kept so the org can be restored by Rhombus.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "clientOrgUuid", FlagName: "client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "confirmName", FlagName: "confirm-name", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/deactivateClient", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("confirm-name", "", "Typed confirmation; must match the client org name.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newDeletePartnerClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-partner-client",
@@ -176,6 +296,35 @@ func newDeletePartnerClientCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetClaimKeysForPartnerOrgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-claim-keys-for-partner-org",
+		Short: "Get claim keys for partner organization",
+		Long:  "Get the claim keys associated with the authenticated partner organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/getClaimKeysForPartnerOrg", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -272,6 +421,64 @@ func newGetDeviceLicensesForOrgCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetHardwareInventoryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-hardware-inventory",
+		Short: "Get MSP hardware inventory",
+		Long:  "MSP only. Every hardware unit under the MSP's PARTNER control with the org it is currently registered in, its device, license state and whether it is bound to an access-controlled door.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/hardware/getInventory", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetLicensePoolCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-license-pool",
+		Short: "Get MSP license pool",
+		Long:  "MSP only. Per product: licenses owned by the MSP, how many sit unassigned in the pool, how many each managed client holds, and unclaimed keys.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/getPool", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -378,7 +585,9 @@ func newGetPartnerClientsCmd() *cobra.Command {
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
-				return params.PrintSkeleton(nil)
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeDeactivated", FlagName: "include-deactivated", Type: "boolean", Required: false, Example: nil},
+				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
 			if err != nil {
@@ -391,6 +600,7 @@ func newGetPartnerClientsCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("include-deactivated", "", "MSP initiative: also return soft-deleted (deactivated) client orgs still inside the restore window. Default false.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -436,7 +646,9 @@ func newGetPartnerClientsV2Cmd() *cobra.Command {
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
-				return params.PrintSkeleton(nil)
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeDeactivated", FlagName: "include-deactivated", Type: "boolean", Required: false, Example: nil},
+				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
 			if err != nil {
@@ -449,6 +661,106 @@ func newGetPartnerClientsV2Cmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("include-deactivated", "", "MSP initiative: also return soft-deleted (deactivated) client orgs still inside the restore window. Default false.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetPartnerOrgProfileCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-partner-org-profile",
+		Short: "Get partner org MSP profile",
+		Long:  "Whether the calling partner is a verified MSP (designation ACTIVE and signature valid), its designation status and the caller's partner functionalities.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/getPartnerOrgProfile", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetPoolClaimKeyByCodeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-pool-claim-key-by-code",
+		Short: "Preview a claim key for the MSP pool",
+		Long:  "MSP only. Looks up a claim key by code before claiming it into the pool. Same visibility rule as the customer-console getClaimKeyByCode: an unclaimed key, or one already claimed by the calling MSP org; a key claimed by any other org is refused.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "claimCode", FlagName: "claim-code", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/getClaimKeyByCode", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("claim-code", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newMoveHardwareToClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "move-hardware-to-client",
+		Short: "Move controlled hardware to another managed client",
+		Long:  "MSP only. Moves controlled devices from one managed client org to another (soft-delete in the source, pending registration in the target). Door-bound DC20 / DR40 / DR20 units are refused until unbound. Optionally moves an MSP-owned device license along. Per-serial results.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "fromClientOrgUuid", FlagName: "from-client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "moveLicense", FlagName: "move-license", Type: "boolean", Required: false, Example: nil},
+					{Name: "serials", FlagName: "serials", Type: "array", Required: false, Example: nil},
+					{Name: "toClientOrgUuid", FlagName: "to-client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/hardware/moveToClient", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("from-client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("move-license", "", "When true, an MSP-owned device license follows the device to the target org.")
+	cmd.Flags().String("serials", "", "")
+	cmd.Flags().String("to-client-org-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -548,6 +860,40 @@ func newPartner_getApiTokensCmd() *cobra.Command {
 	return cmd
 }
 
+func newPartner_renewApiTokenCertCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "partner_renew-api-token-cert",
+		Short: "Renew API token certificate",
+		Long:  "Issue a new client certificate for a partner certificate api token, valid for 365 days or until the token expires if sooner. The token and its api key stay the same; the previous certificate stops working at once, so use rotateApiToken when clients need an overlap. A certificate token can renew its own certificate (omit tokenUuid), before the certificate expires.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "csr", FlagName: "csr", Type: "string", Required: true, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "tokenUuid", FlagName: "token-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/renewApiTokenCert", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("csr", "", "Certificate Signing Request for the new client certificate")
+	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newPartner_revokeApiTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_revoke-api-token",
@@ -575,6 +921,84 @@ func newPartner_revokeApiTokenCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newPartner_rotateApiTokenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "partner_rotate-api-token",
+		Short: "Rotate API token",
+		Long:  "Create a new partner api token with the role, display name and authentication type of an existing one, and shorten the old token's life to the overlap period (overlapSec, default 1 day, maximum 30 days) so clients can switch over. A certificate token needs a CSR for the new certificate. The same limits as submitApiTokenApplication apply to the new token.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "csr", FlagName: "csr", Type: "string", Required: false, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "expiresAtMs", FlagName: "expires-at-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "overlapSec", FlagName: "overlap-sec", Type: "integer", Required: false, Example: int64(86400)},
+					{Name: "tokenUuid", FlagName: "token-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/rotateApiToken", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("csr", "", "Certificate Signing Request for the new token's client certificate. Required when the token uses certificate authentication.")
+	cmd.Flags().String("expires-at-ms", "", "When the new token expires, in epoch milliseconds. Optional for console, mobile and OAuth callers. Required when an API token makes the call: no later than that token's own expiry and at most 365 days from now.")
+	cmd.Flags().String("overlap-sec", "", "How long the old token keeps working, in seconds. Defaults to 86400 (1 day), maximum 2592000 (30 days). The old token's expiry is only ever moved earlier.")
+	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newPartner_submitApiTokenApplicationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "partner_submit-api-token-application",
+		Short: "Submit API token application",
+		Long:  "Create a partner api token for 1 or more organizations. A token created with an api token must expire (expiresAtMs) no later than that token and at most 365 days from now, and is deleted with it. Certificate tokens get a certificate valid for 365 days, or until the token expires if sooner.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "authType", FlagName: "auth-type", Type: "string", Required: false, Example: nil},
+					{Name: "csr", FlagName: "csr", Type: "string", Required: false, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "displayName", FlagName: "display-name", Type: "string", Required: false, Example: "Production API Token"},
+					{Name: "expiresAtMs", FlagName: "expires-at-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/submitApiTokenApplication", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("auth-type", "", "")
+	cmd.Flags().String("csr", "", "Certificate Signing Request (CSR) for token authentication")
+	cmd.Flags().String("display-name", "", "Display name for the API token")
+	cmd.Flags().String("expires-at-ms", "", "When the token expires, in epoch milliseconds. Optional for console, mobile and OAuth callers (no expiry). Required when an API token makes the call: no later than that token's own expiry and at most 365 days from now.")
+	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -616,6 +1040,48 @@ func newReassignDeviceOrgCmd() *cobra.Command {
 	return cmd
 }
 
+func newReclaimLicensesFromClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reclaim-licenses-from-client",
+		Short: "Reclaim pool licenses from a managed client",
+		Long:  "MSP only. Moves MSP-owned licenses held by a managed client back to the pool, optionally unassigning them from devices first. Idempotent by requestId.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "clientOrgUuid", FlagName: "client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "forceUnassign", FlagName: "force-unassign", Type: "boolean", Required: false, Example: nil},
+					{Name: "licenseUuids", FlagName: "license-uuids", Type: "array", Required: false, Example: nil},
+					{Name: "productCode", FlagName: "product-code", Type: "string", Required: false, Example: nil},
+					{Name: "quantity", FlagName: "quantity", Type: "integer", Required: false, Example: nil},
+					{Name: "requestId", FlagName: "request-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/reclaimFromClient", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("force-unassign", "", "When true, device-assigned licenses are unassigned first (config downgrade included).")
+	cmd.Flags().String("license-uuids", "", "Explicit licenses; or use productCode + quantity.")
+	cmd.Flags().String("product-code", "", "")
+	cmd.Flags().String("quantity", "", "")
+	cmd.Flags().String("request-id", "", "Idempotency key; retries with the same id are safe.")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newRegisterCameraToClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-camera-to-client",
@@ -629,8 +1095,8 @@ func newRegisterCameraToClientCmd() *cobra.Command {
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "serialNumber", FlagName: "serial-number", Type: "string", Required: false, Example: "RH123456789"},
+					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "serialNumber", FlagName: "serial-number", Type: "string", Required: true, Example: "RH123456789"},
 					{Name: "wifiPsk", FlagName: "wifi-psk", Type: "array", Required: false, Example: nil},
 					{Name: "wifiSsid", FlagName: "wifi-ssid", Type: "string", Required: false, Example: "Office_WiFi"},
 				})
@@ -683,6 +1149,40 @@ func newRegisterDealCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("details", "", "Map of deal details with key-value pairs")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateManagedClientPolicyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-managed-client-policy",
+		Short: "Update managed client policy",
+		Long:  "MSP only. Sets the per-client policy on a managed org, currently whether client-org users may assign the Super Admin role.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "clientOrgUuid", FlagName: "client-org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "clientSuperAdminAssignable", FlagName: "client-super-admin-assignable", Type: "boolean", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/updateManagedClientPolicy", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("client-super-admin-assignable", "", "When false, client-org users cannot assign the Super Admin role.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

@@ -27,7 +27,6 @@ func NewReportCmd() *cobra.Command {
 	cmd.AddCommand(newGetDiagnosticFeedCmd())
 	cmd.AddCommand(newGetIntegrationDiagnosticEventsCmd())
 	cmd.AddCommand(newGetLicensePlatesByDeviceCmd())
-	cmd.AddCommand(newGetMostRecentPeopleCountEventsCmd())
 	cmd.AddCommand(newGetOccupancyCountsCmd())
 	cmd.AddCommand(newGetOccupancyCountsV2Cmd())
 	cmd.AddCommand(newGetProximityTagLocationsByDateCmd())
@@ -94,12 +93,13 @@ func newGetBatchThresholdCrossingCountReportCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: false, Example: nil},
+					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: true, Example: nil},
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "dedupe", FlagName: "dedupe", Type: "boolean", Required: false, Example: true},
 					{Name: "deviceUuids", FlagName: "device-uuids", Type: "array", Required: false, Example: nil},
-					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
-					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
+					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: true, Example: int64(1640998800000)},
+					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: true, Example: int64(1640995200000)},
 					{Name: "timeZone", FlagName: "time-zone", Type: "string", Required: false, Example: "America/Los_Angeles"},
 				})
 			}
@@ -116,8 +116,9 @@ func newGetBatchThresholdCrossingCountReportCmd() *cobra.Command {
 	}
 	cmd.Flags().String("bucket-size", "", "")
 	cmd.Flags().String("crossing-object", "", "")
-	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results")
+	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results. Defaults to true.")
 	cmd.Flags().String("device-uuids", "", "UUID of devices to get threshold crossing count report for")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End time in milliseconds")
 	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds")
 	cmd.Flags().String("time-zone", "", "String of timezone for bucketing")
@@ -526,40 +527,6 @@ func newGetLicensePlatesByDeviceCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetMostRecentPeopleCountEventsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "get-most-recent-people-count-events",
-		Short: "Get most recent people count events",
-		Long:  "Get the X most recent people counting events for a specified device",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
-					{Name: "numMostRecent", FlagName: "num-most-recent", Type: "integer", Required: false, Example: int64(10)},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/report/getMostRecentPeopleCountEvents", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
-	cmd.Flags().String("num-most-recent", "", "Number of most recent people counts to retrieve")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
 func newGetOccupancyCountsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-occupancy-counts",
@@ -780,12 +747,13 @@ func newGetThresholdCrossingCountReportCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: false, Example: nil},
+					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: true, Example: nil},
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "dedupe", FlagName: "dedupe", Type: "boolean", Required: false, Example: true},
 					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
-					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
-					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
+					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: true, Example: int64(1640998800000)},
+					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: true, Example: int64(1640995200000)},
 					{Name: "timeZone", FlagName: "time-zone", Type: "string", Required: false, Example: "America/Los_Angeles"},
 				})
 			}
@@ -802,8 +770,9 @@ func newGetThresholdCrossingCountReportCmd() *cobra.Command {
 	}
 	cmd.Flags().String("bucket-size", "", "")
 	cmd.Flags().String("crossing-object", "", "")
-	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results")
+	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results. Defaults to true.")
 	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End time in milliseconds")
 	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds")
 	cmd.Flags().String("time-zone", "", "String of timezone for bucketing")
@@ -824,11 +793,12 @@ func newGetThresholdCrossingCountReportForOrgCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: false, Example: nil},
+					{Name: "bucketSize", FlagName: "bucket-size", Type: "string", Required: true, Example: nil},
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "dedupe", FlagName: "dedupe", Type: "boolean", Required: false, Example: true},
-					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
-					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
+					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: true, Example: int64(1640998800000)},
+					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: true, Example: int64(1640995200000)},
 					{Name: "timeZone", FlagName: "time-zone", Type: "string", Required: false, Example: "America/Los_Angeles"},
 				})
 			}
@@ -845,7 +815,8 @@ func newGetThresholdCrossingCountReportForOrgCmd() *cobra.Command {
 	}
 	cmd.Flags().String("bucket-size", "", "")
 	cmd.Flags().String("crossing-object", "", "")
-	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results")
+	cmd.Flags().String("dedupe", "", "Whether to deduplicate the results. Defaults to true.")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End time in milliseconds")
 	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds")
 	cmd.Flags().String("time-zone", "", "String of timezone for bucketing")
@@ -869,6 +840,7 @@ func newGetThresholdCrossingCountsCmd() *cobra.Command {
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "dailyResetTimeMinute", FlagName: "daily-reset-time-minute", Type: "integer", Required: false, Example: int64(0)},
 					{Name: "devices", FlagName: "devices", Type: "array", Required: false, Example: nil},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
 					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
 					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
 				})
@@ -887,6 +859,7 @@ func newGetThresholdCrossingCountsCmd() *cobra.Command {
 	cmd.Flags().String("crossing-object", "", "")
 	cmd.Flags().String("daily-reset-time-minute", "", "Daily reset time in minutes")
 	cmd.Flags().String("devices", "", "List of device UUIDs to get threshold crossing counts for")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End time in milliseconds")
 	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
@@ -908,6 +881,7 @@ func newGetThresholdCrossingEventsCmd() *cobra.Command {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "devices", FlagName: "devices", Type: "array", Required: false, Example: nil},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
 					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
 					{Name: "startTimeMs", FlagName: "start-time-ms", Type: "integer", Required: false, Example: int64(1640995200000)},
 				})
@@ -925,6 +899,7 @@ func newGetThresholdCrossingEventsCmd() *cobra.Command {
 	}
 	cmd.Flags().String("crossing-object", "", "")
 	cmd.Flags().String("devices", "", "List of device UUIDs to get threshold crossing events for")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End time in milliseconds")
 	cmd.Flags().String("start-time-ms", "", "Start time in milliseconds")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
@@ -946,6 +921,7 @@ func newGetThresholdCrossingEventsForDeviceCmd() *cobra.Command {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "crossingObject", FlagName: "crossing-object", Type: "string", Required: false, Example: nil},
 					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "elementUuids", FlagName: "element-uuids", Type: "array", Required: false, Example: nil},
 					{Name: "endTimeMs", FlagName: "end-time-ms", Type: "integer", Required: false, Example: int64(1640998800000)},
 					{Name: "lastEvaluatedKey", FlagName: "last-evaluated-key", Type: "string", Required: false, Example: nil},
 					{Name: "maxPageSize", FlagName: "max-page-size", Type: "integer", Required: false, Example: int64(100)},
@@ -965,6 +941,7 @@ func newGetThresholdCrossingEventsForDeviceCmd() *cobra.Command {
 	}
 	cmd.Flags().String("crossing-object", "", "")
 	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("element-uuids", "", "Crossing region uuids (the camera's crossing_regions entries) to restrict results to. When set, crossings from the camera's single legacy line are excluded. Omit to include every crossing.")
 	cmd.Flags().String("end-time-ms", "", "End timestamp of query period in epoch MS")
 	cmd.Flags().String("last-evaluated-key", "", "Should be null on first request and populated on subsequent requests if provided in the response to retrieve the next page")
 	cmd.Flags().String("max-page-size", "", "Max number of results to return. Response's lastEvaluatedKey will be null if no additional results are available")

@@ -36,13 +36,11 @@ func NewIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetOrgIntegrationsV2DepCmd())
 	cmd.AddCommand(newGetWebhookIntegrationDepCmd())
 	cmd.AddCommand(newRevokeApiTokenDepCmd())
-	cmd.AddCommand(newSubmitApiTokenApplicationDepCmd())
 	cmd.AddCommand(newSubscribeZapierWebhookDepCmd())
 	cmd.AddCommand(newUnsubscribeZapierWebhookDepCmd())
 	cmd.AddCommand(newUpdateAmtIntegrationDepCmd())
 	cmd.AddCommand(newUpdateDeviceIntegrationDepCmd())
 	cmd.AddCommand(newUpdateMattermostIntegrationDepCmd())
-	cmd.AddCommand(newUpdateNoonlightSettingsCmd())
 	cmd.AddCommand(newUpdateOpenAIIntegrationDepCmd())
 	cmd.AddCommand(newUpdateWebhookIntegrationDepCmd())
 	cmd.AddCommand(newUpdateWebhookIntegrationV2DepCmd())
@@ -695,44 +693,6 @@ func newRevokeApiTokenDepCmd() *cobra.Command {
 	return cmd
 }
 
-func newSubmitApiTokenApplicationDepCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "submit-api-token-application-dep",
-		Short: "Submit API Token Application",
-		Long:  "Request an api token for organization",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "authType", FlagName: "auth-type", Type: "string", Required: false, Example: nil},
-					{Name: "csr", FlagName: "csr", Type: "string", Required: false, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
-					{Name: "displayName", FlagName: "display-name", Type: "string", Required: false, Example: "Production API Token"},
-					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/integrations/submitApiTokenApplication", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("auth-type", "", "")
-	cmd.Flags().String("csr", "", "Certificate Signing Request (CSR) for token authentication")
-	cmd.Flags().String("display-name", "", "Display name for the API token")
-	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
 func newSubscribeZapierWebhookDepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "subscribe-zapier-webhook-dep",
@@ -921,38 +881,6 @@ func newUpdateMattermostIntegrationDepCmd() *cobra.Command {
 	return cmd
 }
 
-func newUpdateNoonlightSettingsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update-noonlight-settings",
-		Short: "Update Noonlight Settings",
-		Long:  "Update Noonlight integration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "noonlightSettings", FlagName: "noonlight-settings", Type: "object", Required: false, Example: nil},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/integrations/updateNoonlightSettings", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("noonlight-settings", "", "")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
 func newUpdateOpenAIIntegrationDepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-open-a-i-integration-dep",
@@ -1031,6 +959,7 @@ func newUpdateWebhookIntegrationV2DepCmd() *cobra.Command {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "disabled", FlagName: "disabled", Type: "boolean", Required: false, Example: false},
 					{Name: "isDiagnostic", FlagName: "is-diagnostic", Type: "boolean", Required: false, Example: false},
+					{Name: "trustedCaCertificates", FlagName: "trusted-ca-certificates", Type: "string", Required: false, Example: nil},
 					{Name: "updatedWebhookSettings", FlagName: "updated-webhook-settings", Type: "object", Required: false, Example: nil},
 					{Name: "webhookUrl", FlagName: "webhook-url", Type: "string", Required: false, Example: "https://api.example.com/webhook/rhombus"},
 				})
@@ -1048,6 +977,7 @@ func newUpdateWebhookIntegrationV2DepCmd() *cobra.Command {
 	}
 	cmd.Flags().String("disabled", "", "Whether the webhook is disabled")
 	cmd.Flags().String("is-diagnostic", "", "Whether this is a diagnostic webhook")
+	cmd.Flags().String("trusted-ca-certificates", "", "PEM certificates for a new webhook (webhookUrl): when set, the webhook's server certificate must chain to one of these, or be one of them, instead of a public certificate authority. At most 10 certificates and 32 KB; private keys are refused. Set or clear it on an existing webhook through its entry in updatedWebhookSettings.")
 	cmd.Flags().String("updated-webhook-settings", "", "")
 	cmd.Flags().String("webhook-url", "", "Webhook URL for receiving notifications")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")

@@ -15,159 +15,12 @@ func NewAlertMonitoringCmd() *cobra.Command {
 		Short: "Alert Monitoring Webservice operations",
 	}
 
-	cmd.AddCommand(newCancelThreatCaseCmd())
-	cmd.AddCommand(newCreateCustomPinForLocationCmd())
-	cmd.AddCommand(newCreatePinForLocationCmd())
-	cmd.AddCommand(newDeletePinForLocationCmd())
 	cmd.AddCommand(newDisableMonitoringForLocationCmd())
 	cmd.AddCommand(newDismissThreatCaseCmd())
 	cmd.AddCommand(newEnableMonitoringForLocationCmd())
-	cmd.AddCommand(newEscalateThreatCaseToAlarmCmd())
 	cmd.AddCommand(newGetAlertMonitoringSettingsForLocationCmd())
 	cmd.AddCommand(newLocationStatusCmd())
 	cmd.AddCommand(newOrgStatusCmd())
-	return cmd
-}
-
-func newCancelThreatCaseCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "cancel-threat-case",
-		Short: "Cancel threat case",
-		Long:  "Cancel a threat case in alert monitoring.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "1234"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/alertmonitoring/cancelThreatCase", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("pin", "", "PIN code required to cancel the threat case")
-	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
-func newCreateCustomPinForLocationCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create-custom-pin-for-location",
-		Short: "Create custom PIN for location",
-		Long:  "Create a custom PIN for alert monitoring at a specific location.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "Custom PIN for main entrance access"},
-					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Custom Main Entrance PIN"},
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "5678"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/alertmonitoring/createCustomPinForLocation", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("description", "", "Description of the PIN")
-	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("name", "", "Name for the PIN")
-	cmd.Flags().String("pin", "", "Custom PIN code to be created")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
-func newCreatePinForLocationCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create-pin-for-location",
-		Short: "Create PIN for location",
-		Long:  "Create a PIN for alert monitoring at a specific location.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: "PIN for main entrance access"},
-					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: "Main Entrance PIN"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/alertmonitoring/createPinForLocation", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("description", "", "Description of the PIN")
-	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("name", "", "Name for the PIN")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
-func newDeletePinForLocationCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete-pin-for-location",
-		Short: "Delete PIN for location",
-		Long:  "Delete a PIN for alert monitoring at a specific location.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "1234"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/alertmonitoring/deletePinForLocation", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("pin", "", "PIN code to be deleted")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 
@@ -217,9 +70,9 @@ func newDismissThreatCaseCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: "1234"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "authenticatePin", FlagName: "authenticate-pin", Type: "boolean", Required: false, Example: nil},
+					{Name: "pin", FlagName: "pin", Type: "string", Required: false, Example: nil},
+					{Name: "uuid", FlagName: "uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -233,8 +86,8 @@ func newDismissThreatCaseCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("pin", "", "PIN code required to dismiss the threat case")
+	cmd.Flags().String("authenticate-pin", "", "When true, the server authenticates the provided PIN against the threat case's zone and rejects the request if authentication fails. Expected from clients that cannot identify their caller such as alarm pads. ")
+	cmd.Flags().String("pin", "", "Optional PIN used to authenticate this request and identify the initiating user or group. Only honored when authenticatePin is true; otherwise ignored. ")
 	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
@@ -270,40 +123,6 @@ func newEnableMonitoringForLocationCmd() *cobra.Command {
 	}
 	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("pin", "", "The PIN code required to enable alert monitoring.")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
-func newEscalateThreatCaseToAlarmCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "escalate-threat-case-to-alarm",
-		Short: "Escalate threat case to alarm",
-		Long:  "Escalate a threat case to an alarm for alert monitoring.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "orgUuid", FlagName: "org-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-					{Name: "uuid", FlagName: "uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/alertmonitoring/escalateThreatCaseToAlarm", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("org-uuid", "", "base 64 (url-safe) uuid string")
-	cmd.Flags().String("uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

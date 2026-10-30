@@ -19,12 +19,14 @@ func NewLocationCmd() *cobra.Command {
 	cmd.AddCommand(newCreatelocationCmd())
 	cmd.AddCommand(newDeleteLocationCmd())
 	cmd.AddCommand(newGeoCodeCmd())
+	cmd.AddCommand(newGetFloorPlanWallsCmd())
 	cmd.AddCommand(newGetLocationCmd())
 	cmd.AddCommand(newGetLocationLabelsForOrgCmd())
 	cmd.AddCommand(newGetLocationsCmd())
 	cmd.AddCommand(newGetLocationsAssociatedToLocationLabelsByOrgCmd())
 	cmd.AddCommand(newGetLocationsByGeoCmd())
 	cmd.AddCommand(newGetLocationsBySubLocationsHierarchyKeyCmd())
+	cmd.AddCommand(newRefreshFloorPlanWallsCmd())
 	cmd.AddCommand(newRemoveLocationLabelCmd())
 	cmd.AddCommand(newSelectiveUpdateLocationCmd())
 	cmd.AddCommand(newUpdateLocationCmd())
@@ -158,6 +160,38 @@ func newGeoCodeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("address", "", "Address to geocode")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetFloorPlanWallsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-floor-plan-walls",
+		Short: "Get floor plan walls",
+		Long:  "Get the walls detected in a floor plan image",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "floorPlanUuid", FlagName: "floor-plan-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/location/getFloorPlanWalls", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("floor-plan-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -333,7 +367,7 @@ func newGetLocationsBySubLocationsHierarchyKeyCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "object", Required: false, Example: nil},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
@@ -347,7 +381,39 @@ func newGetLocationsBySubLocationsHierarchyKeyCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("sub-locations-hierarchy-key", "", "")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRefreshFloorPlanWallsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "refresh-floor-plan-walls",
+		Short: "Refresh floor plan walls",
+		Long:  "Re-detect and store the walls of a floor plan image",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "floorPlanUuid", FlagName: "floor-plan-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/location/refreshFloorPlanWalls", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("floor-plan-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -402,6 +468,7 @@ func newSelectiveUpdateLocationCmd() *cobra.Command {
 					{Name: "address1", FlagName: "address1", Type: "string", Required: false, Example: nil},
 					{Name: "address2", FlagName: "address2", Type: "string", Required: false, Example: nil},
 					{Name: "countryCode", FlagName: "country-code", Type: "string", Required: false, Example: nil},
+					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: nil},
 					{Name: "floorPlans", FlagName: "floor-plans", Type: "array", Required: false, Example: nil},
 					{Name: "labels", FlagName: "labels", Type: "array", Required: false, Example: nil},
 					{Name: "latitude", FlagName: "latitude", Type: "number", Required: false, Example: nil},
@@ -428,6 +495,7 @@ func newSelectiveUpdateLocationCmd() *cobra.Command {
 	cmd.Flags().String("address1", "", "First line of the address")
 	cmd.Flags().String("address2", "", "Second line of the address")
 	cmd.Flags().String("country-code", "", "Country code of the location")
+	cmd.Flags().String("description", "", "Description of this location")
 	cmd.Flags().String("floor-plans", "", "Floor plans for the location")
 	cmd.Flags().String("labels", "", "Labels offer a way to perform operations across multiple locations if they have the same label")
 	cmd.Flags().String("latitude", "", "Latitude coordinate of the location")

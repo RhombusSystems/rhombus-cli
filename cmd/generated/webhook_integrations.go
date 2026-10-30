@@ -18,6 +18,8 @@ func NewWebhookIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteWebhookIntegrationCmd())
 	cmd.AddCommand(newDeleteWebhookIntegrationV2Cmd())
 	cmd.AddCommand(newGetWebhookIntegrationCmd())
+	cmd.AddCommand(newRevealWebhookSecretCmd())
+	cmd.AddCommand(newRotateWebhookSecretCmd())
 	cmd.AddCommand(newSubscribeZapierWebhookCmd())
 	cmd.AddCommand(newUnsubscribeZapierWebhookCmd())
 	cmd.AddCommand(newUpdateWebhookIntegrationCmd())
@@ -107,6 +109,70 @@ func newGetWebhookIntegrationCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRevealWebhookSecretCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reveal-webhook-secret",
+		Short: "Reveal webhook secret",
+		Long:  "Return the shared secret of an activity or diagnostic webhook; audited",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "webhookUrl", FlagName: "webhook-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/revealWebhookSecret", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("webhook-url", "", "URL of the activity or diagnostic webhook whose secret to reveal")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRotateWebhookSecretCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotate-webhook-secret",
+		Short: "Rotate webhook secret",
+		Long:  "Give an activity or diagnostic webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours; audited",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "webhookUrl", FlagName: "webhook-url", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/rotateWebhookSecret", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("webhook-url", "", "URL of the activity or diagnostic webhook whose secret to rotate")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -238,6 +304,7 @@ func newUpdateWebhookIntegrationV2Cmd() *cobra.Command {
 				return params.PrintSkeleton([]params.ParamMeta{
 					{Name: "disabled", FlagName: "disabled", Type: "boolean", Required: false, Example: false},
 					{Name: "isDiagnostic", FlagName: "is-diagnostic", Type: "boolean", Required: false, Example: false},
+					{Name: "trustedCaCertificates", FlagName: "trusted-ca-certificates", Type: "string", Required: false, Example: nil},
 					{Name: "updatedWebhookSettings", FlagName: "updated-webhook-settings", Type: "object", Required: false, Example: nil},
 					{Name: "webhookUrl", FlagName: "webhook-url", Type: "string", Required: false, Example: "https://api.example.com/webhook/rhombus"},
 				})
@@ -255,6 +322,7 @@ func newUpdateWebhookIntegrationV2Cmd() *cobra.Command {
 	}
 	cmd.Flags().String("disabled", "", "Whether the webhook is disabled")
 	cmd.Flags().String("is-diagnostic", "", "Whether this is a diagnostic webhook")
+	cmd.Flags().String("trusted-ca-certificates", "", "PEM certificates for a new webhook (webhookUrl): when set, the webhook's server certificate must chain to one of these, or be one of them, instead of a public certificate authority. At most 10 certificates and 32 KB; private keys are refused. Set or clear it on an existing webhook through its entry in updatedWebhookSettings.")
 	cmd.Flags().String("updated-webhook-settings", "", "")
 	cmd.Flags().String("webhook-url", "", "Webhook URL for receiving notifications")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")

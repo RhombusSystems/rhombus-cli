@@ -115,7 +115,7 @@ func newCreateLockdownRuleForLocationCmd() *cobra.Command {
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
 				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "rule", FlagName: "rule", Type: "object", Required: false, Example: nil},
+					{Name: "rule", FlagName: "rule", Type: "object", Required: true, Example: nil},
 				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)

@@ -15,16 +15,67 @@ func NewDoorbellCameraCmd() *cobra.Command {
 		Short: "Doorbell Camera Webservice operations",
 	}
 
+	cmd.AddCommand(newCreateDoorbellCameraRawHttpStreamCmd())
 	cmd.AddCommand(newCreateDoorbellCameraSharedLiveVideoStreamCmd())
 	cmd.AddCommand(newCreateRuleForDoorbellCameraCmd())
 	cmd.AddCommand(newDeleteDoorbellCameraCmd())
+	cmd.AddCommand(newDeleteDoorbellCameraRawHttpStreamCmd())
 	cmd.AddCommand(newDeleteRuleForDoorbellCameraCmd())
 	cmd.AddCommand(newDoorbellCameraCalibrateFloorplanProjectionCmd())
+	cmd.AddCommand(newFindAllDoorbellCameraRawHttpStreamsCmd())
 	cmd.AddCommand(newFindComponentEventsForDoorbellCameraCmd())
 	cmd.AddCommand(newFindComponentSeekPointsForDoorbellCameraCmd())
 	cmd.AddCommand(newFindDoorbellCameraSharedLiveVideoStreamsCmd())
+	cmd.AddCommand(newGetDoorbellCameraBoundingBoxesCmd())
+	cmd.AddCommand(newGetDoorbellCameraConfigCmd())
+	cmd.AddCommand(newGetDoorbellCameraFullStateCmd())
+	cmd.AddCommand(newGetDoorbellCameraMediaUrisCmd())
+	cmd.AddCommand(newGetDoorbellCameraMinimalStateListCmd())
+	cmd.AddCommand(newGetDoorbellCameraOfflineLanStreamingInfoCmd())
+	cmd.AddCommand(newGetDoorbellCameraRawHttpStreamsCmd())
 	cmd.AddCommand(newGetDoorbellCameraRulesForOrgCmd())
+	cmd.AddCommand(newGetDoorbellCameraSeekPointsCmd())
 	cmd.AddCommand(newGetRulesForDoorbellCameraCmd())
+	cmd.AddCommand(newRebootDoorbellCameraCmd())
+	cmd.AddCommand(newReportDoorbellCameraTalkSessionCmd())
+	cmd.AddCommand(newUpdateDoorbellCameraConfigCmd())
+	cmd.AddCommand(newUpdateDoorbellCameraDetailsCmd())
+	return cmd
+}
+
+func newCreateDoorbellCameraRawHttpStreamCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-doorbell-camera-raw-http-stream",
+		Short: "Create a raw HTTP stream for a doorbell camera",
+		Long:  "Create a raw HTTP stream for a doorbell camera.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "rawStreamName", FlagName: "raw-stream-name", Type: "string", Required: false, Example: "my_raw_stream"},
+					{Name: "streamType", FlagName: "stream-type", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/createRawHttpStream", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("raw-stream-name", "", "Name for the raw stream")
+	cmd.Flags().String("stream-type", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
 
@@ -142,6 +193,40 @@ func newDeleteDoorbellCameraCmd() *cobra.Command {
 	return cmd
 }
 
+func newDeleteDoorbellCameraRawHttpStreamCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-doorbell-camera-raw-http-stream",
+		Short: "Delete a raw HTTP stream for a doorbell camera",
+		Long:  "Delete a raw HTTP stream for a doorbell camera.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "customPathPart", FlagName: "custom-path-part", Type: "string", Required: false, Example: "my_stream"},
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/deleteRawHttpStream", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("custom-path-part", "", "Custom path part to identify specific stream")
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newDeleteRuleForDoorbellCameraCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-rule-for-doorbell-camera",
@@ -207,6 +292,35 @@ func newDoorbellCameraCalibrateFloorplanProjectionCmd() *cobra.Command {
 	cmd.Flags().String("camera-image-points-permyriad", "", "List of camera image points in permyriad coordinates")
 	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("floorplan-image-points-permyriad", "", "List of floorplan image points in permyriad coordinates")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newFindAllDoorbellCameraRawHttpStreamsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find-all-doorbell-camera-raw-http-streams",
+		Short: "Get a list of all doorbell cameras raw HTTP streams",
+		Long:  "Get a list of all doorbell cameras raw HTTP streams.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/findAllRawHttpStreams", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -320,6 +434,233 @@ func newFindDoorbellCameraSharedLiveVideoStreamsCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetDoorbellCameraBoundingBoxesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-bounding-boxes",
+		Short: "Get object bounding boxes for a specified doorbell camera",
+		Long:  "Get object bounding boxes for a specified doorbell camera. Note: bounding box values are given as permyriad shorts relative to image.  To convert to absolute pixel values, use the following: abs_pix = (rel_permyriad / 10000) * image_dim",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "durationSecs", FlagName: "duration-secs", Type: "integer", Required: false, Example: nil},
+					{Name: "startTimeSec", FlagName: "start-time-sec", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getBoundingBoxes", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("duration-secs", "", "")
+	cmd.Flags().String("start-time-sec", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-config",
+		Short: "Get a doorbell camera's config",
+		Long:  "Get a doorbell camera's config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getConfig", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraFullStateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-full-state",
+		Short: "Get detailed information about state of specified doorbell camera",
+		Long:  "Get detailed information about state of specified doorbell camera",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "force", FlagName: "force", Type: "boolean", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getFullState", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("force", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraMediaUrisCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-media-uris",
+		Short: "Get media uris for doorbell camera to retrieve footage and audio",
+		Long:  "Get media uris for doorbell camera to retrieve footage and audio",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getMediaUris", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraMinimalStateListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-minimal-state-list",
+		Short: "Get basic state information about all doorbell cameras in organization",
+		Long:  "Get basic state information about all doorbell cameras in organization",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "includeMummified", FlagName: "include-mummified", Type: "boolean", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getMinimalStateList", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("include-mummified", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraOfflineLanStreamingInfoCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-offline-lan-streaming-info",
+		Short: "Get required information for offline lan streaming on all video intercoms",
+		Long:  "Get required information for offline lan streaming on all video intercoms",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getOfflineLanStreamingInfo", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraRawHttpStreamsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-raw-http-streams",
+		Short: "Get info for all raw HTTP streams from a doorbell camera",
+		Long:  "Get info for all raw HTTP streams from a doorbell camera.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getRawHttpStreams", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetDoorbellCameraRulesForOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-doorbell-camera-rules-for-org",
@@ -344,6 +685,44 @@ func newGetDoorbellCameraRulesForOrgCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDoorbellCameraSeekPointsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-doorbell-camera-seek-points",
+		Short: "Get activity seekpoints for specified doorbell camera",
+		Long:  "Get activity seekpoints for specified doorbell camera",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "durationSecs", FlagName: "duration-secs", Type: "integer", Required: false, Example: nil},
+					{Name: "includeAnyMotion", FlagName: "include-any-motion", Type: "boolean", Required: false, Example: nil},
+					{Name: "startTimeSec", FlagName: "start-time-sec", Type: "integer", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/getSeekpoints", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("duration-secs", "", "")
+	cmd.Flags().String("include-any-motion", "", "")
+	cmd.Flags().String("start-time-sec", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -376,6 +755,160 @@ func newGetRulesForDoorbellCameraCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("doorbell-camera-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRebootDoorbellCameraCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reboot-doorbell-camera",
+		Short: "Reboot the specified doorbell camera",
+		Long:  "Reboot the specified doorbell camera",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "doorbellCameraUuid", FlagName: "doorbell-camera-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/reboot", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("doorbell-camera-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newReportDoorbellCameraTalkSessionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "report-doorbell-camera-talk-session",
+		Short: "Report an operator talk session on a video intercom",
+		Long:  "Report that the calling operator started or ended talking through a video intercom. Emits an IntercomTalkEvent component event correlatable with the intercom's DoorbellEvent button presses; the STARTED and ENDED reports of one hold share a talkSessionUuid.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "state", FlagName: "state", Type: "string", Required: true, Example: nil},
+					{Name: "talkSessionUuid", FlagName: "talk-session-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/reportTalkSession", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("state", "", "")
+	cmd.Flags().String("talk-session-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateDoorbellCameraConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-doorbell-camera-config",
+		Short: "Update a doorbell camera's config",
+		Long:  "Update a doorbell camera's config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "configUpdate", FlagName: "config-update", Type: "object", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/updateConfig", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("config-update", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateDoorbellCameraDetailsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-doorbell-camera-details",
+		Short: "Update hardware details of doorbell camera",
+		Long:  "Update hardware details of doorbell camera.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "associatedCameras", FlagName: "associated-cameras", Type: "array", Required: false, Example: nil},
+					{Name: "description", FlagName: "description", Type: "string", Required: false, Example: nil},
+					{Name: "deviceUuid", FlagName: "device-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "directionRadians", FlagName: "direction-radians", Type: "number", Required: false, Example: nil},
+					{Name: "floorNumber", FlagName: "floor-number", Type: "integer", Required: false, Example: nil},
+					{Name: "latitude", FlagName: "latitude", Type: "number", Required: false, Example: nil},
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "longitude", FlagName: "longitude", Type: "number", Required: false, Example: nil},
+					{Name: "name", FlagName: "name", Type: "string", Required: false, Example: nil},
+					{Name: "policyUuid", FlagName: "policy-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKey", FlagName: "sub-locations-hierarchy-key", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "subLocationsHierarchyKeyUpdated", FlagName: "sub-locations-hierarchy-key-updated", Type: "boolean", Required: false, Example: false},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/doorbellcamera/updateDetails", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("associated-cameras", "", "Optional list of associated camera device facet UUIDs")
+	cmd.Flags().String("description", "", "Optional description for the doorbell camera")
+	cmd.Flags().String("device-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("direction-radians", "", "Optional direction in radians for the doorbell camera")
+	cmd.Flags().String("floor-number", "", "Optional floor number where the doorbell camera is located")
+	cmd.Flags().String("latitude", "", "Optional latitude coordinate of the doorbell camera")
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("longitude", "", "Optional longitude coordinate of the doorbell camera")
+	cmd.Flags().String("name", "", "Optional name for the doorbell camera")
+	cmd.Flags().String("policy-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("sub-locations-hierarchy-key", "", "A sequence of one or more base 64 (url-safe) uuid substrings. These substrings are separated by dots (.). ")
+	cmd.Flags().String("sub-locations-hierarchy-key-updated", "", "Whether the sub-locations hierarchy key has been updated")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

@@ -18,7 +18,10 @@ func NewOrgIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newGetApiTokensCmd())
 	cmd.AddCommand(newGetOrgIntegrationsCmd())
 	cmd.AddCommand(newGetOrgIntegrationsV2Cmd())
+	cmd.AddCommand(newRenewApiTokenCertCmd())
 	cmd.AddCommand(newRevokeApiTokenCmd())
+	cmd.AddCommand(newRotateApiTokenCmd())
+	cmd.AddCommand(newSubmitApiTokenApplicationCmd())
 	return cmd
 }
 
@@ -112,6 +115,40 @@ func newGetOrgIntegrationsV2Cmd() *cobra.Command {
 	return cmd
 }
 
+func newRenewApiTokenCertCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "renew-api-token-cert",
+		Short: "Renew API token certificate",
+		Long:  "Issue a new client certificate for a certificate api token, valid for 365 days or until the token expires if sooner. The token and its api key stay the same; the previous certificate stops working at once, so use rotateApiToken when clients need an overlap. A certificate token can renew its own certificate (omit tokenUuid), before the certificate expires.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "csr", FlagName: "csr", Type: "string", Required: true, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "tokenUuid", FlagName: "token-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/org/renewApiTokenCert", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("csr", "", "Certificate Signing Request for the new client certificate")
+	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newRevokeApiTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke-api-token",
@@ -139,6 +176,84 @@ func newRevokeApiTokenCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRotateApiTokenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotate-api-token",
+		Short: "Rotate API token",
+		Long:  "Create a new api token with the role, display name and authentication type of an existing one, and shorten the old token's life to the overlap period (overlapSec, default 1 day, maximum 30 days) so clients can switch over. A certificate token needs a CSR for the new certificate. The same limits as submitApiTokenApplication apply to the new token.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "csr", FlagName: "csr", Type: "string", Required: false, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "expiresAtMs", FlagName: "expires-at-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "overlapSec", FlagName: "overlap-sec", Type: "integer", Required: false, Example: int64(86400)},
+					{Name: "tokenUuid", FlagName: "token-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/org/rotateApiToken", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("csr", "", "Certificate Signing Request for the new token's client certificate. Required when the token uses certificate authentication.")
+	cmd.Flags().String("expires-at-ms", "", "When the new token expires, in epoch milliseconds. Optional for console, mobile and OAuth callers. Required when an API token makes the call: no later than that token's own expiry and at most 365 days from now.")
+	cmd.Flags().String("overlap-sec", "", "How long the old token keeps working, in seconds. Defaults to 86400 (1 day), maximum 2592000 (30 days). The old token's expiry is only ever moved earlier.")
+	cmd.Flags().String("token-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newSubmitApiTokenApplicationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "submit-api-token-application",
+		Short: "Submit API token application",
+		Long:  "Create an api token for organization. Federated tokens cannot create api tokens, and among api tokens only developer tokens can. A token created with an api token must expire (expiresAtMs) no later than that token and at most 365 days from now, and is deleted with it. Certificate tokens get a certificate valid for 365 days, or until the token expires if sooner.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "authType", FlagName: "auth-type", Type: "string", Required: false, Example: nil},
+					{Name: "csr", FlagName: "csr", Type: "string", Required: false, Example: "-----BEGIN CERTIFICATE REQUEST-----..."},
+					{Name: "displayName", FlagName: "display-name", Type: "string", Required: false, Example: "Production API Token"},
+					{Name: "expiresAtMs", FlagName: "expires-at-ms", Type: "integer", Required: false, Example: nil},
+					{Name: "permissionGroupUuid", FlagName: "permission-group-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/org/submitApiTokenApplication", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("auth-type", "", "")
+	cmd.Flags().String("csr", "", "Certificate Signing Request (CSR) for token authentication")
+	cmd.Flags().String("display-name", "", "Display name for the API token")
+	cmd.Flags().String("expires-at-ms", "", "When the token expires, in epoch milliseconds. Optional for console, mobile and OAuth callers (no expiry). Required when an API token makes the call: no later than that token's own expiry and at most 365 days from now.")
+	cmd.Flags().String("permission-group-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

@@ -18,13 +18,13 @@ func NewExportCmd() *cobra.Command {
 	cmd.AddCommand(newExportAuditCmd())
 	cmd.AddCommand(newExportClimateEventsCmd())
 	cmd.AddCommand(newExportCountReportsCmd())
+	cmd.AddCommand(newExportDeviceLicensesCmd())
 	cmd.AddCommand(newExportDiagnosticCmd())
 	cmd.AddCommand(newExportDoorEventsCmd())
 	cmd.AddCommand(newExportEnvironmentalGatewayEventsCmd())
 	cmd.AddCommand(newExportInventoryCmd())
 	cmd.AddCommand(newExportMotionEventsCmd())
 	cmd.AddCommand(newExportPeopleCountEventsCmd())
-	cmd.AddCommand(newExportPeopleEventsCmd())
 	cmd.AddCommand(newExportProximityEventsCmd())
 	cmd.AddCommand(newExportProximityLocomotionEventsCmd())
 	cmd.AddCommand(newExportUptimeCmd())
@@ -151,6 +151,35 @@ func newExportCountReportsCmd() *cobra.Command {
 	cmd.Flags().String("time-zone", "", "String of timezone for bucketing")
 	cmd.Flags().String("type", "", "")
 	cmd.Flags().String("uuid-list", "", "Enter the UUID of device(s) or location(s)")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newExportDeviceLicensesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "export-device-licenses",
+		Short: "Download device licenses",
+		Long:  "Download every registered device with its assigned license, plus door and unassigned licenses",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/export/deviceLicenses", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -361,40 +390,6 @@ func newExportPeopleCountEventsCmd() *cobra.Command {
 	}
 	cmd.Flags().String("end-interval", "", "End time interval in milliseconds for filtering people count events")
 	cmd.Flags().String("start-interval", "", "Start time interval in milliseconds for filtering people count events")
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
-	return cmd
-}
-
-func newExportPeopleEventsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "export-people-events",
-		Short: "Download people event log",
-		Long:  "Download people event log",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton([]params.ParamMeta{
-					{Name: "endInterval", FlagName: "end-interval", Type: "integer", Required: false, Example: int64(1641081600000)},
-					{Name: "startInterval", FlagName: "start-interval", Type: "integer", Required: false, Example: int64(1640995200000)},
-				})
-			}
-			body, err := params.BuildBody(flags, cliJSON)
-			if err != nil {
-				return err
-			}
-			result, err := client.APICall(cfg, "/api/export/peopleEvents", body)
-			if err != nil {
-				return err
-			}
-			return output.FormatOutput(cmd, result)
-		},
-	}
-	cmd.Flags().String("end-interval", "", "End time interval in milliseconds for filtering people events")
-	cmd.Flags().String("start-interval", "", "Start time interval in milliseconds for filtering people events")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
