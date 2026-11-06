@@ -109,7 +109,7 @@ rhombus <command> [subcommand] [flags]
 
 ### Generated API commands
 
-67 resource commands are auto-generated from the Rhombus OpenAPI spec, covering the full API surface. Examples:
+69 resource commands are auto-generated from the Rhombus OpenAPI spec, covering the full API surface. Examples:
 
 ```sh
 # List all cameras
@@ -262,6 +262,30 @@ rhombus camera get-minimal-camera-state-list --partner-org <org-uuid>
 Name matching is case-insensitive and substring-based. If multiple orgs match, you'll be prompted to select one.
 
 Note: `--partner-org` selects which client org a command *operates on*; to *authenticate* the CLI as a partner account in the first place, log in with `rhombus login --partner`.
+
+Partner-only commands (`partner`, `partner-portal`, and the partner `...-for-client-org` / partner-user / partner-permission operations) always run as your partner organization: they never send `--partner-org` or a profile's client org, because those endpoints refuse it. Their `--help` says so.
+
+### Partner quoting and ordering
+
+```sh
+# Price book and quotes on your deal-registered opportunities
+rhombus partner-portal get-quote-products
+rhombus partner-portal get-opportunity-quotes --cli-input-json '{"opportunityId":"006..."}'
+rhombus partner-portal create-quote --cli-input-json file://quote.json
+rhombus partner-portal get-quote --cli-input-json '{"quoteId":"a2q..."}'   # poll until priced
+
+# Place the order: attach the PO (PDF, 24 MB max). Keep the same portalFileId when retrying.
+rhombus partner-portal upload-p-o-to-opp \
+  --field opportunityId=006... --field poNumber=PO-1234 --field portalFileId=$(uuidgen) \
+  --file ./PO-1234.pdf
+
+# Approved MSPs: self-provision licenses into the pool (quote, then accept)
+rhombus partner get-license-catalog
+rhombus partner quote-pool-order --request-id order-1 --product-code <sku> --quantity 10 --auto-renew false
+rhombus partner accept-pool-order --cli-input-json '{"orderId":"006...","acknowledgement":{"agreed":true,"typedName":"Jane Doe"}}'
+```
+
+Multipart uploads (`partner-portal upload-p-o-to-opp`, `upload-mdf-claim-file`, and the `upload` group) take each form field as `--field name=value` and the file as `--file path`.
 
 ## Configuration files
 

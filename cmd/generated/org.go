@@ -531,9 +531,10 @@ func newGetClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-client-org",
 		Short: "Get client organization details",
-		Long:  "Get details about the client organization",
+		Long:  "Get details about the client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")

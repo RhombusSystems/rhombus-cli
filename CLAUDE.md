@@ -30,14 +30,14 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 
 ### Two kinds of commands
 
-1. **Auto-generated API commands** (`cmd/generated/`): 67 service files generated from `openapi.json` by the codegen tool (`go run ./codegen/ <spec> <outdir>`). Every operation follows the same pattern: load config → collect flags → merge `--cli-input-json` → POST to `/api/<resource>/<operation>` → format output. Do not hand-edit these files.
+1. **Auto-generated API commands** (`cmd/generated/`): 69 service files generated from `openapi.json` by the codegen tool (`go run ./codegen/ <spec> <outdir>`). Every operation follows the same pattern: load config → collect flags → merge `--cli-input-json` → POST to `/api/<resource>/<operation>` → format output. Two spec-driven variants: an operation whose `x-auth-scheme` example is a partner scheme, or that declares no `x-auth-org` header, is partner-only and clears `cfg.PartnerOrg` before the call; a `multipart/form-data` operation takes `--field name=value` / `--file [part=]path` and goes through `client.MultipartCall`. Do not hand-edit these files.
 
 2. **Manual commands** (`cmd/`): Complex features that need custom UX — alert management, live footage, WebSocket monitoring, video stitching (ffmpeg), frame analysis, deployment context, AI chat/voice. File map: `alert.go`, `footage.go`, `monitor.go` + `monitor_actions.go`, `stitch.go`, `analyze.go`, `context.go`, `chat.go`, `voice.go`, `configure.go`, `login.go`, plus `root.go` (persistent flags + command registration).
 
 ### Internal packages
 
 - **`internal/auth`** — Credential headers for every request (REST, media, WebSocket): API key, mTLS, OAuth (`auth_type=oauth`), partner schemes, `x-auth-org`. Refreshes OAuth access tokens under a lock on `~/.rhombus/credentials.lock`.
-- **`internal/client`** — HTTP client with auth handling (API key, mTLS, partner tokens). All API calls go through `APICall(cfg, path, body)`. Verbose logging via `--verbose` flag.
+- **`internal/client`** — HTTP client with auth handling (API key, mTLS, partner tokens). All API calls go through `APICall(cfg, path, body)` (JSON) or `MultipartCall(cfg, path, fields, files)`; both share auth headers, mTLS and the OAuth 401 refresh-and-retry. Verbose logging via `--verbose` flag.
 - **`internal/config`** — Config loading with precedence: CLI flags > env vars (`RHOMBUS_API_KEY`, `RHOMBUS_PROFILE`, `RHOMBUS_OUTPUT`, `RHOMBUS_ENDPOINT_URL`) > profile INI files (`~/.rhombus/config`, `~/.rhombus/credentials`) > defaults.
 - **`internal/output`** — Output formatting. JSON is implemented; table/text are Phase 2 stubs.
 - **`internal/params`** — Flag collection, JSON body building, `--cli-input-json` / `--generate-cli-skeleton` support. Converts kebab-case flags to camelCase for the API.

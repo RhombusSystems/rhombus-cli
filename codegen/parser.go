@@ -25,6 +25,11 @@ type Operation struct {
 	Summary     string
 	Description string
 	Params      []Param
+	// PartnerOnly: the endpoint acts as the caller's partner organization and refuses x-auth-org, so the
+	// command never sends the selected client org (see partnerOnly).
+	PartnerOnly bool
+	// Multipart: the request body is multipart/form-data, sent from --field and --file flags.
+	Multipart bool
 }
 
 type Service struct {
@@ -43,10 +48,11 @@ type openAPISpec struct {
 }
 
 type operationObj struct {
-	OperationID string   `json:"operationId"`
-	Summary     string   `json:"summary"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
+	OperationID string         `json:"operationId"`
+	Summary     string         `json:"summary"`
+	Description string         `json:"description"`
+	Tags        []string       `json:"tags"`
+	Parameters  []parameterObj `json:"parameters"`
 	RequestBody struct {
 		Content map[string]struct {
 			Schema struct {
@@ -54,6 +60,15 @@ type operationObj struct {
 			} `json:"schema"`
 		} `json:"content"`
 	} `json:"requestBody"`
+}
+
+type parameterObj struct {
+	Name    string `json:"name"`
+	In      string `json:"in"`
+	Example any    `json:"example"`
+	Schema  struct {
+		Default any `json:"default"`
+	} `json:"schema"`
 }
 
 type schemaObj struct {
@@ -122,6 +137,8 @@ func ParseSpec(specPath string) ([]Service, error) {
 				Path:        path,
 				Summary:     sanitizeString(op.Summary),
 				Description: sanitizeString(op.Description),
+				PartnerOnly: partnerOnly(op),
+				Multipart:   isMultipart(op),
 			}
 
 			// Resolve request body schema to get params
@@ -148,6 +165,37 @@ func ParseSpec(specPath string) ([]Service, error) {
 	})
 
 	return services, nil
+}
+
+// partnerOnly reports whether the spec marks an operation as partner-only: its x-auth-scheme example is a partner
+// scheme (only partner credentials can call it), or it declares x-auth-scheme but no x-auth-org header (the server
+// refuses one). Such an endpoint acts as the partner organization itself.
+func partnerOnly(op operationObj) bool {
+	hasScheme, hasAuthOrg := false, false
+	for _, p := range op.Parameters {
+		if !strings.EqualFold(p.In, "header") {
+			continue
+		}
+		switch strings.ToLower(p.Name) {
+		case "x-auth-scheme":
+			hasScheme = true
+			for _, v := range []any{p.Example, p.Schema.Default} {
+				if s, ok := v.(string); ok && strings.HasPrefix(s, "partner-") {
+					return true
+				}
+			}
+		case "x-auth-org":
+			hasAuthOrg = true
+		}
+	}
+	return hasScheme && !hasAuthOrg
+}
+
+// isMultipart reports whether the operation takes a multipart/form-data body and no JSON body.
+func isMultipart(op operationObj) bool {
+	_, multipart := op.RequestBody.Content["multipart/form-data"]
+	_, hasJSON := op.RequestBody.Content["application/json"]
+	return multipart && !hasJSON
 }
 
 func getSchemaRef(op operationObj) string {

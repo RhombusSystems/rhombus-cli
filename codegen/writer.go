@@ -152,9 +152,35 @@ func new{{.GoFuncName}}Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{.CommandName}}",
 		Short: "{{.Summary}}",
-		Long:  "{{.Description}}",
+		Long:  "{{.Description}}{{if .PartnerOnly}}\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.{{end}}{{if .Multipart}}\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.{{end}}",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+{{- if .PartnerOnly}}
+			cfg.PartnerOrg = ""
+{{- end}}
+{{- if .Multipart}}
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
+			if err != nil {
+				return err
+			}
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "{{.Path}}", fields, files)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
+	return cmd
+}
+{{- else}}
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -177,4 +203,5 @@ func new{{.GoFuncName}}Cmd() *cobra.Command {
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
 }
+{{- end}}
 {{end}}`

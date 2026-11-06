@@ -24,6 +24,7 @@ Official CLI for the [Rhombus](https://www.rhombus.com) public API — ~60 servi
   - Recent alerts: `rhombus alert` group
   - Footage review: `rhombus analyze` (AI analysis of a camera + time window), `rhombus stitch` (multi-camera clip assembly)
   - Natural-language queries: `rhombus chat`
+  - Partner quoting and ordering (log in with `rhombus login --partner`): `rhombus partner-portal get-quote-products` (price book), `create-quote` / `update-quote` / `get-quote` (poll until priced), then `upload-p-o-to-opp --field opportunityId=… --field poNumber=… --field portalFileId=<uuid, reused on retry> --file po.pdf` to place the order. Approved MSPs self-provision licenses with `rhombus partner get-license-catalog` → `quote-pool-order` → `accept-pool-order` (the acknowledgement's `typedName` must be the user's own name, typed by them). Partner-only commands always act as the partner org and ignore `--partner-org`.
   - Bandwidth & analytics metrics: `rhombus report get-count-report-v2 --scope DEVICE --uuid <cam> --types '["BANDWIDTH"]' --interval HOURLY --start-time-ms <ms> --end-time-ms <ms>` — other `types`: `CROWD`, `PEOPLE`, `FACES`, `MOTION`, `VEHICLES`, `LICENSEPLATES`, `ALERTS`, `DWELL`. Note: `--help` lists flag *names* but not accepted enum *values*; consult the OpenAPI spec (below) for the valid values of any param.
 
 ## References

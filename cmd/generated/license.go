@@ -310,9 +310,10 @@ func newGetACUDoorLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-a-c-u-door-licenses-for-client-org",
 		Short: "Get ACU door licenses for client org",
-		Long:  "Get list of access controlled door licenses licenses available for a client organization",
+		Long:  "Get list of access controlled door licenses licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -371,9 +372,10 @@ func newGetAlertMonitoringLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-alert-monitoring-licenses-for-client-org",
 		Short: "Get alert monitoring licenses for client org",
-		Long:  "Get list of alert monitoring licenses available for a client organization",
+		Long:  "Get list of alert monitoring licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -464,9 +466,10 @@ func newGetDeviceLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-device-licenses-for-client-org",
 		Short: "Get device licenses for client org",
-		Long:  "Get list of device licenses available for a client organization",
+		Long:  "Get list of device licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -525,9 +528,10 @@ func newGetGuestManagementLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-guest-management-licenses-for-client-org",
 		Short: "Get guest management licenses for client org",
-		Long:  "Get list of guest management licenses available for a client organization",
+		Long:  "Get list of guest management licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -589,9 +593,10 @@ func newGetLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-licenses-for-client-org",
 		Short: "Get licenses for client org",
-		Long:  "Get a list of licenses available for a client organization",
+		Long:  "Get a list of licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -682,9 +687,10 @@ func newGetPaneLicensesForClientOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-pane-licenses-for-client-org",
 		Short: "Get pane licenses for client org",
-		Long:  "Get the list of PANE app licenses in a client organization",
+		Long:  "Get the list of PANE app licenses in a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")

@@ -32,9 +32,10 @@ func newCreatePartnerPermissionGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-partner-permission-group",
 		Short: "Create partner permission group",
-		Long:  "Create a permission group",
+		Long:  "Create a permission group\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -96,9 +97,10 @@ func newDeletePartnerPermissionGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-partner-permission-group",
 		Short: "Delete partner permission group",
-		Long:  "Delete a permission group",
+		Long:  "Delete a permission group\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")

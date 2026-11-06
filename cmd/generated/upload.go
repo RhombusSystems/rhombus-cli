@@ -30,28 +30,28 @@ func newBulkUploadUserProfilePhotosCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bulk-upload-user-profile-photos",
 		Short: "Bulk upload user profile pictures",
-		Long:  "Uploads multiple user profile pictures in a single request, supporting up to 100 photos with automatic user matching based on filename or metadata. Each photo must be <= 5MB.",
+		Long:  "Uploads multiple user profile pictures in a single request, supporting up to 100 photos with automatic user matching based on filename or metadata. Each photo must be <= 5MB.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/bulkUploadUserProfilePhotos", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/bulkUploadUserProfilePhotos", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -59,28 +59,28 @@ func newUploadBadgeTemplateImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-badge-template-images",
 		Short: "Upload badge template images",
-		Long:  "Uploads images for badge templates with associated metadata, supporting JPEG and PNG formats with size validation and automatic S3 storage.",
+		Long:  "Uploads images for badge templates with associated metadata, supporting JPEG and PNG formats with size validation and automatic S3 storage.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/badgeTemplate/images", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/badgeTemplate/images", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -88,28 +88,28 @@ func newUploadCompanyLogoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-company-logo",
 		Short: "Upload company logo",
-		Long:  "Uploads a company logo image, supporting various formats including JPEG, PNG, BMP, GIF, WebP, and PSD, and updates the organization's logo URL.",
+		Long:  "Uploads a company logo image, supporting various formats including JPEG, PNG, BMP, GIF, WebP, and PSD, and updates the organization's logo URL.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/companyLogo", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/companyLogo", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -117,28 +117,28 @@ func newUploadGuestManagementDocumentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-guest-management-document",
 		Short: "Upload guest management document",
-		Long:  "Uploads a PDF or DOCX document for guest management (e.g. for guest e-signature), storing it in S3 and recording it on the org's guest management settings.",
+		Long:  "Uploads a PDF or DOCX document for guest management (e.g. for guest e-signature), storing it in S3 and recording it on the org's guest management settings.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/guestManagement/document", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/guestManagement/document", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -146,28 +146,28 @@ func newUploadGuestManagementSignedDocumentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-guest-management-signed-documents",
 		Short: "Upload signed guest management documents for a visit",
-		Long:  "Stores one or more completed, signed PDFs against the visit named by 'inviteUuid' and records them on that visit. This is the in-house counterpart to the signing provider's completion webhook: the caller already holds the finished document and hands us the bytes. The visit is required - a signed document with nothing to attach it to is unreachable afterwards. Send one 'inviteUuid' part, a repeated 'file' part per document, and one 'docUuids' part per file (comma-separated uuids of the org documents it is the signed output of), optionally with a matching repeated 'name' part to label each one.",
+		Long:  "Stores one or more completed, signed PDFs against the visit named by 'inviteUuid' and records them on that visit. This is the in-house counterpart to the signing provider's completion webhook: the caller already holds the finished document and hands us the bytes. The visit is required - a signed document with nothing to attach it to is unreachable afterwards. Send one 'inviteUuid' part, a repeated 'file' part per document, and one 'docUuids' part per file (comma-separated uuids of the org documents it is the signed output of), optionally with a matching repeated 'name' part to label each one.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/guestManagement/signedDocuments", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/guestManagement/signedDocuments", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -175,28 +175,28 @@ func newUploadKeypadLogoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-keypad-logo",
 		Short: "Upload keypad logo",
-		Long:  "Uploads a logo image for keypad devices, generating a unique UUID and storing the image with proper metadata and organization association.",
+		Long:  "Uploads a logo image for keypad devices, generating a unique UUID and storing the image with proper metadata and organization association.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/keypadLogo", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/keypadLogo", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -204,28 +204,28 @@ func newUploadNewFloorPlanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-new-floor-plan",
 		Short: "Upload new floorplan for location",
-		Long:  "Uploads a new floorplan image for a location, supporting multiple formats including JPEG, PNG, PDF, WebP, and SVG with automatic conversion to JPEG for SVG files.",
+		Long:  "Uploads a new floorplan image for a location, supporting multiple formats including JPEG, PNG, PDF, WebP, and SVG with automatic conversion to JPEG for SVG files.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/floorplan", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/floorplan", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }
 
@@ -233,27 +233,27 @@ func newUploadRhombusKeyLogoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-rhombus-key-logo",
 		Short: "Upload Rhombus key logo",
-		Long:  "Uploads a logo image for Rhombus key devices, generating a unique UUID and storing the image with proper metadata and organization association.",
+		Long:  "Uploads a logo image for Rhombus key devices, generating a unique UUID and storing the image with proper metadata and organization association.\n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/upload/rhombusKeyLogo", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/upload/rhombusKeyLogo", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }

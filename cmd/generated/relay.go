@@ -31,6 +31,7 @@ func NewRelayCmd() *cobra.Command {
 	cmd.AddCommand(newGetMinimalNVRStateListCmd())
 	cmd.AddCommand(newGetMinimalThirdPartyCameraStateListCmd())
 	cmd.AddCommand(newGetNVRDetailsCmd())
+	cmd.AddCommand(newGetN551InstallersCmd())
 	cmd.AddCommand(newGetRelayUptimeWindowsCmd())
 	cmd.AddCommand(newGetRtspEndpointsCmd())
 	cmd.AddCommand(newGetThirdPartyCameraDiscoveryScanStatusCmd())
@@ -356,14 +357,16 @@ func newDownloadN551IsoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download-n551-iso",
 		Short: "Download N551 installer ISO",
-		Long:  "Mints a fresh device identity/credential through the dedicated software-relay pool and returns a freshly-stamped N551 installer ISO carrying it. Every call mints a brand new identity; nothing is cached or reused across downloads.",
+		Long:  "Mints a fresh device identity/credential and stamps it into a new N551 installer ISO, then returns a short-lived signed URL to fetch that ISO from. Every call mints a brand new identity; nothing is cached or reused across downloads.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
 			if skeleton {
-				return params.PrintSkeleton(nil)
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
 			}
 			body, err := params.BuildBody(flags, cliJSON)
 			if err != nil {
@@ -376,6 +379,7 @@ func newDownloadN551IsoCmd() *cobra.Command {
 			return output.FormatOutput(cmd, result)
 		},
 	}
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -597,6 +601,35 @@ func newGetNVRDetailsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("nvruuids", "", "List of NVR UUIDs to get details for")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetN551InstallersCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-n551-installers",
+		Short: "Get N551 installers",
+		Long:  "List the organization's registered N551 installers (personalized Rhombus Relay installer media), newest first. Unregister one with /relay/unregister to revoke it and free its slot.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/relay/getN551Installers", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

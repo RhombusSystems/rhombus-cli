@@ -15,7 +15,10 @@ func NewPartnerCmd() *cobra.Command {
 		Short: "Partner Webservice operations",
 	}
 
+	cmd.AddCommand(newAcceptPoolOrderCmd())
+	cmd.AddCommand(newAssignHardwareToClientCmd())
 	cmd.AddCommand(newAssignLicensesToClientCmd())
+	cmd.AddCommand(newCancelPoolOrderCmd())
 	cmd.AddCommand(newClaimLicensesToPoolCmd())
 	cmd.AddCommand(newCreatePartnerClientCmd())
 	cmd.AddCommand(newCustomizeClientCmd())
@@ -27,6 +30,7 @@ func NewPartnerCmd() *cobra.Command {
 	cmd.AddCommand(newGetClientSummaryInfoCmd())
 	cmd.AddCommand(newGetDeviceLicensesForOrgCmd())
 	cmd.AddCommand(newGetHardwareInventoryCmd())
+	cmd.AddCommand(newGetLicenseCatalogCmd())
 	cmd.AddCommand(newGetLicensePoolCmd())
 	cmd.AddCommand(newGetLicensesForOrgCmd())
 	cmd.AddCommand(newGetListOfAllClientDevicesCmd())
@@ -44,6 +48,7 @@ func NewPartnerCmd() *cobra.Command {
 	cmd.AddCommand(newPartner_revokeApiTokenCmd())
 	cmd.AddCommand(newPartner_rotateApiTokenCmd())
 	cmd.AddCommand(newPartner_submitApiTokenApplicationCmd())
+	cmd.AddCommand(newQuotePoolOrderCmd())
 	cmd.AddCommand(newReassignDeviceOrgCmd())
 	cmd.AddCommand(newReclaimLicensesFromClientCmd())
 	cmd.AddCommand(newRegisterCameraToClientCmd())
@@ -53,13 +58,88 @@ func NewPartnerCmd() *cobra.Command {
 	return cmd
 }
 
+func newAcceptPoolOrderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "accept-pool-order",
+		Short: "Accept a quoted license order into the MSP pool",
+		Long:  "MSP only. Step 2 of 2 (D28-D30): records the partner's acknowledgement (checkbox, typed signature, the quote total / currency / terms version as shown; the server adds the accepting user's name and email, the time, client IP and user agent) on the pool opportunity. Salesforce then bills the order, mints the claim key and the licenses land in the pool with no further call (poll getPool). Answers 202 ORDER_SUBMITTED, also when the order had already been accepted (replay). The daily cap is consumed here. On success an audit event carries the acknowledgement and a receipt email with the lines, prices, term dates, auto-renew terms and acceptance time goes to the accepting user and the MSP admins. Errors: 400 ACKNOWLEDGEMENT_REQUIRED (agreed false), SIGNATURE_REQUIRED (blank), PROVISION_CAP_EXCEEDED (detail = remainingToday), SELF_PROVISIONING_DISABLED; 403 NOT_VERIFIED_MSP, ORDER_NOT_YOURS; 404 ORDER_NOT_FOUND; 409 QUOTE_CHANGED (total, currency or terms version differ from the quote on record); 410 QUOTE_EXPIRED (also for a cancelled or otherwise closed quote); 503 SALESFORCE_UNAVAILABLE (acceptance NOT recorded; retry, idempotent on orderId). No claim code ever appears in any response.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "acknowledgement", FlagName: "acknowledgement", Type: "object", Required: false, Example: nil},
+					{Name: "orderId", FlagName: "order-id", Type: "string", Required: false, Example: nil},
+					{Name: "requestId", FlagName: "request-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/acceptPoolOrder", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("acknowledgement", "", "")
+	cmd.Flags().String("order-id", "", "orderId from quotePoolOrder (the Salesforce opportunity id). Must be this partner's, QUOTED, calculated and unexpired.")
+	cmd.Flags().String("request-id", "", "The client request id the quote was asked under (optional; when given it must be the order's).")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newAssignHardwareToClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "assign-hardware-to-client",
+		Short: "Assign controlled, unregistered hardware to a managed client",
+		Long:  "MSP only. Pre-registers hardware under the MSP's PARTNER control that is not registered anywhere (shelf stock, or units unregistered from a previous client) to a managed client org, so each unit lands in that client when it comes online. A registered unit is refused (HARDWARE_NOT_AVAILABLE; move it with /hardware/moveToClient); a unit already pending to another client is refused (CONFLICT); one already pending to this client is reported as assigned without a second pending registration. Per-serial results; one failing serial never aborts the others. Errors: 400 VALIDATION_FAILED (missing toClientOrgUuid, 0 or more than 50 serials); 403 NOT_VERIFIED_MSP, NOT_MANAGED_CLIENT; LOCATION_NOT_FOUND when locationUuid is not in the client org.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+					{Name: "serials", FlagName: "serials", Type: "array", Required: true, Example: nil},
+					{Name: "toClientOrgUuid", FlagName: "to-client-org-uuid", Type: "string", Required: true, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/hardware/assignToClient", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("serials", "", "Serial numbers of controlled, unregistered hardware units (1 to 50). Trimmed and de-duplicated.")
+	cmd.Flags().String("to-client-org-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newAssignLicensesToClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "assign-licenses-to-client",
 		Short: "Assign pool licenses to a managed client",
-		Long:  "MSP only. Moves N unassigned pool licenses of a product to a managed client org. Term dates are unchanged. Idempotent by requestId.",
+		Long:  "MSP only. Moves N unassigned pool licenses of a product to a managed client org. Term dates are unchanged. Idempotent by requestId.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -91,13 +171,47 @@ func newAssignLicensesToClientCmd() *cobra.Command {
 	return cmd
 }
 
+func newCancelPoolOrderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cancel-pool-order",
+		Short: "Cancel an un-accepted license quote",
+		Long:  "MSP only. Closes a QUOTED pool opportunity of this partner in Salesforce so it can no longer be accepted. Errors: 404 ORDER_NOT_FOUND; 409 ORDER_NOT_CANCELLABLE (already accepted, expired, cancelled or not a quote); 403 NOT_VERIFIED_MSP, ORDER_NOT_YOURS; 503 SALESFORCE_UNAVAILABLE.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "orderId", FlagName: "order-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/cancelPoolOrder", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("order-id", "", "orderId from quotePoolOrder (the Salesforce opportunity id).")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newClaimLicensesToPoolCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "claim-licenses-to-pool",
 		Short: "Claim licenses into the MSP pool",
-		Long:  "MSP only. Claims a key into the MSP's own org with the MSP recorded as owner, so the licenses can later be assigned to managed clients.",
+		Long:  "MSP only. Claims a key into the MSP's own org with the MSP recorded as owner, so the licenses can later be assigned to managed clients.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -127,9 +241,10 @@ func newCreatePartnerClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-partner-client",
 		Short: "Create partner client",
-		Long:  "Create a client account",
+		Long:  "Create a client account\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -167,9 +282,10 @@ func newCustomizeClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "customize-client",
 		Short: "Customize client",
-		Long:  "Customize a client account",
+		Long:  "Customize a client account\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -201,9 +317,10 @@ func newCustomizeClientDeviceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "customize-client-device",
 		Short: "Customize client device",
-		Long:  "Customize a client device",
+		Long:  "Customize a client device\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -239,9 +356,10 @@ func newDeactivateClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deactivate-client",
 		Short: "Deactivate managed client",
-		Long:  "MSP only. Soft-deletes a managed client org after a typed name confirmation. Refused while devices are registered or MSP-owned licenses are assigned; unassigned pooled licenses are reclaimed first; every session in the client org is ended; the MSP's authority row is kept so the org can be restored by Rhombus.",
+		Long:  "MSP only. Soft-deletes a managed client org after a typed name confirmation. Refused while devices are registered or MSP-owned licenses are assigned; unassigned pooled licenses are reclaimed first; every session in the client org is ended; the MSP's authority row is kept so the org can be restored by Rhombus.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -273,9 +391,10 @@ func newDeletePartnerClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-partner-client",
 		Short: "Delete partner client",
-		Long:  "Delete a client account",
+		Long:  "Delete a client account\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -305,9 +424,10 @@ func newGetClaimKeysForPartnerOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-claim-keys-for-partner-org",
 		Short: "Get claim keys for partner organization",
-		Long:  "Get the claim keys associated with the authenticated partner organization",
+		Long:  "Get the claim keys associated with the authenticated partner organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -334,9 +454,10 @@ func newGetClientDevicesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-client-devices",
 		Short: "Get client devices",
-		Long:  "Retrieve a list of devices for a specific client.",
+		Long:  "Retrieve a list of devices for a specific client.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -366,9 +487,10 @@ func newGetClientSummaryInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-client-summary-info",
 		Short: "Get client summary info",
-		Long:  "Get information about a client",
+		Long:  "Get information about a client\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -398,9 +520,10 @@ func newGetDeviceLicensesForOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-device-licenses-for-org",
 		Short: "Get device licenses for organization",
-		Long:  "Get a list of licenses available for a client organization",
+		Long:  "Get a list of licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -430,9 +553,10 @@ func newGetHardwareInventoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-hardware-inventory",
 		Short: "Get MSP hardware inventory",
-		Long:  "MSP only. Every hardware unit under the MSP's PARTNER control with the org it is currently registered in, its device, license state and whether it is bound to an access-controlled door.",
+		Long:  "MSP only. Every hardware unit under the MSP's PARTNER control with the org it is currently registered in, its device, license state and whether it is bound to an access-controlled door.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -455,13 +579,44 @@ func newGetHardwareInventoryCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetLicenseCatalogCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-license-catalog",
+		Short: "Get the self-provisioning license catalog",
+		Long:  "MSP only. The SKUs an approved MSP may provision into its own pool (allow-list intersected with the license catalog, deprecated codes removed, sorted by tier then term), the per-request cap and how many licenses the MSP may still provision today.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/getCatalog", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetLicensePoolCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-license-pool",
 		Short: "Get MSP license pool",
-		Long:  "MSP only. Per product: licenses owned by the MSP, how many sit unassigned in the pool, how many each managed client holds, and unclaimed keys.",
+		Long:  "MSP only. Per product: licenses owned by the MSP, how many sit unassigned in the pool, how many each managed client holds, and unclaimed keys.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -488,9 +643,10 @@ func newGetLicensesForOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-licenses-for-org",
 		Short: "Get licenses for organization",
-		Long:  "Get a list of licenses available for a client organization",
+		Long:  "Get a list of licenses available for a client organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -520,9 +676,10 @@ func newGetListOfAllClientDevicesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-list-of-all-client-devices",
 		Short: "Get list of all client devices",
-		Long:  "Retrieve list of all devices registered across all clients",
+		Long:  "Retrieve list of all devices registered across all clients\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -549,9 +706,10 @@ func newGetListOfControlledHardwareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-list-of-controlled-hardware",
 		Short: "Get list of available hardware",
-		Long:  "Retrieve a list of hardware available for remote registration. Any hardware originally registered by a Partner is available for re-registration after being removed from an active client account.",
+		Long:  "Retrieve a list of hardware available for remote registration. Any hardware originally registered by a Partner is available for re-registration after being removed from an active client account.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -578,9 +736,10 @@ func newGetPartnerClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-partner-clients",
 		Short: "Get partner clients",
-		Long:  "Get a list of all client accounts",
+		Long:  "Get a list of all client accounts\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -610,9 +769,10 @@ func newGetPartnerClientsStatusMapCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-partner-clients-status-map",
 		Short: "Get client status map",
-		Long:  "Get a map of all client accounts to device and location info",
+		Long:  "Get a map of all client accounts to device and location info\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -639,9 +799,10 @@ func newGetPartnerClientsV2Cmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-partner-clients-v2",
 		Short: "Get partner clients V2",
-		Long:  "Get a list of all client accounts. NOTICE: This is the same as getPartnerClients, but only returns the basic info so partners can login to clients quickly. The other info will be returned by getPartnerClientsStatusMap.",
+		Long:  "Get a list of all client accounts. NOTICE: This is the same as getPartnerClients, but only returns the basic info so partners can login to clients quickly. The other info will be returned by getPartnerClientsStatusMap.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -671,9 +832,10 @@ func newGetPartnerOrgProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-partner-org-profile",
 		Short: "Get partner org MSP profile",
-		Long:  "Whether the calling partner is a verified MSP (designation ACTIVE and signature valid), its designation status and the caller's partner functionalities.",
+		Long:  "Whether the calling partner is a verified MSP (designation ACTIVE and signature valid), its designation status and the caller's partner functionalities.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -700,9 +862,10 @@ func newGetPoolClaimKeyByCodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-pool-claim-key-by-code",
 		Short: "Preview a claim key for the MSP pool",
-		Long:  "MSP only. Looks up a claim key by code before claiming it into the pool. Same visibility rule as the customer-console getClaimKeyByCode: an unclaimed key, or one already claimed by the calling MSP org; a key claimed by any other org is refused.",
+		Long:  "MSP only. Looks up a claim key by code before claiming it into the pool. Same visibility rule as the customer-console getClaimKeyByCode: an unclaimed key, or one already claimed by the calling MSP org; a key claimed by any other org is refused.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -732,9 +895,10 @@ func newMoveHardwareToClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "move-hardware-to-client",
 		Short: "Move controlled hardware to another managed client",
-		Long:  "MSP only. Moves controlled devices from one managed client org to another (soft-delete in the source, pending registration in the target). Door-bound DC20 / DR40 / DR20 units are refused until unbound. Optionally moves an MSP-owned device license along. Per-serial results.",
+		Long:  "MSP only. Moves controlled devices from one managed client org to another (soft-delete in the source, pending registration in the target). Door-bound DC20 / DR40 / DR20 units are refused until unbound. Optionally moves an MSP-owned device license along. Per-serial results.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -770,9 +934,10 @@ func newPartnerGetShipmentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner-get-shipments",
 		Short: "Get client shipments",
-		Long:  "Get client shipments",
+		Long:  "Get client shipments\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -806,9 +971,10 @@ func newPartner_getApiTokenApplicationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_get-api-token-applications",
 		Short: "Get API token applications",
-		Long:  "Get details of all open api token requests for organization",
+		Long:  "Get details of all open api token requests for organization\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -835,9 +1001,10 @@ func newPartner_getApiTokensCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_get-api-tokens",
 		Short: "Get API tokens",
-		Long:  "Get list of all api tokens for a partner",
+		Long:  "Get list of all api tokens for a partner\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -864,9 +1031,10 @@ func newPartner_renewApiTokenCertCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_renew-api-token-cert",
 		Short: "Renew API token certificate",
-		Long:  "Issue a new client certificate for a partner certificate api token, valid for 365 days or until the token expires if sooner. The token and its api key stay the same; the previous certificate stops working at once, so use rotateApiToken when clients need an overlap. A certificate token can renew its own certificate (omit tokenUuid), before the certificate expires.",
+		Long:  "Issue a new client certificate for a partner certificate api token, valid for 365 days or until the token expires if sooner. The token and its api key stay the same; the previous certificate stops working at once, so use rotateApiToken when clients need an overlap. A certificate token can renew its own certificate (omit tokenUuid), before the certificate expires.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -898,9 +1066,10 @@ func newPartner_revokeApiTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_revoke-api-token",
 		Short: "Revoke API token",
-		Long:  "Remove an api token from organization. Note: this is irreversible",
+		Long:  "Remove an api token from organization. Note: this is irreversible\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -930,9 +1099,10 @@ func newPartner_rotateApiTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_rotate-api-token",
 		Short: "Rotate API token",
-		Long:  "Create a new partner api token with the role, display name and authentication type of an existing one, and shorten the old token's life to the overlap period (overlapSec, default 1 day, maximum 30 days) so clients can switch over. A certificate token needs a CSR for the new certificate. The same limits as submitApiTokenApplication apply to the new token.",
+		Long:  "Create a new partner api token with the role, display name and authentication type of an existing one, and shorten the old token's life to the overlap period (overlapSec, default 1 day, maximum 30 days) so clients can switch over. A certificate token needs a CSR for the new certificate. The same limits as submitApiTokenApplication apply to the new token.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -968,9 +1138,10 @@ func newPartner_submitApiTokenApplicationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "partner_submit-api-token-application",
 		Short: "Submit API token application",
-		Long:  "Create a partner api token for 1 or more organizations. A token created with an api token must expire (expiresAtMs) no later than that token and at most 365 days from now, and is deleted with it. Certificate tokens get a certificate valid for 365 days, or until the token expires if sooner.",
+		Long:  "Create a partner api token for 1 or more organizations. A token created with an api token must expire (expiresAtMs) no later than that token and at most 365 days from now, and is deleted with it. Certificate tokens get a certificate valid for 365 days, or until the token expires if sooner.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1004,13 +1175,53 @@ func newPartner_submitApiTokenApplicationCmd() *cobra.Command {
 	return cmd
 }
 
+func newQuotePoolOrderCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "quote-pool-order",
+		Short: "Quote a license order into the MSP pool",
+		Long:  "MSP only. Step 1 of 2 (D28): creates a pool opportunity with its priced quote in Salesforce (partner pricebook) and answers 200 with the lines, prices, license term dates, the terms version/URL and the quote expiry. Nothing is ordered or billed until acceptPoolOrder; an unaccepted quote expires after 24 h. Idempotent on requestId (an identical replay returns the same quote). Errors: 400 SELF_PROVISIONING_DISABLED, SKU_NOT_ALLOWED, QUANTITY_INVALID, AUTO_RENEW_REQUIRED, PROVISION_CAP_EXCEEDED (detail = remainingToday; caps are only pre-checked here), APEX_VALIDATION / SKU_NOT_IN_PRICEBOOK (detail = the Salesforce message); 403 NOT_VERIFIED_MSP; 409 PROVISION_REPLAY_MISMATCH (same requestId, different SKU, quantity or auto-renew); 429 QUOTE_RATE_LIMITED (quotes per organization per minute); 503 SALESFORCE_UNAVAILABLE (nothing created; retry with the SAME requestId). Prices appear only here and on getPool orders. No claim code ever appears in any response.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "autoRenew", FlagName: "auto-renew", Type: "boolean", Required: false, Example: nil},
+					{Name: "productCode", FlagName: "product-code", Type: "string", Required: false, Example: nil},
+					{Name: "quantity", FlagName: "quantity", Type: "integer", Required: false, Example: nil},
+					{Name: "requestId", FlagName: "request-id", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/partner/license/quotePoolOrder", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("auto-renew", "", "Required. True: Salesforce creates and bills a renewal order itself when the term ends (D27); the acknowledgement at acceptPoolOrder covers auto-renewal (D30). Only allowed while getPool.selfProvisioningAutoRenewEnabled is true (deferred after V1; otherwise 400 FEATURE_DISABLED).")
+	cmd.Flags().String("product-code", "", "")
+	cmd.Flags().String("quantity", "", "1 <= quantity <= maxPerRequest (see getCatalog).")
+	cmd.Flags().String("request-id", "", "Client-generated id, ONE per dialog open ([A-Za-z0-9_-]{1,64}). Retrying with the same id is idempotent: the same opportunity and its current quote come back (409 PROVISION_REPLAY_MISMATCH if the SKU, quantity or auto-renew differ).")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newReassignDeviceOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reassign-device-org",
 		Short: "Reassign device organization",
-		Long:  "Reassign device(s) to a different organization. Only devices which hardware is controlled by the partner can be reassigned",
+		Long:  "Reassign device(s) to a different organization. Only devices which hardware is controlled by the partner can be reassigned\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1044,9 +1255,10 @@ func newReclaimLicensesFromClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reclaim-licenses-from-client",
 		Short: "Reclaim pool licenses from a managed client",
-		Long:  "MSP only. Moves MSP-owned licenses held by a managed client back to the pool, optionally unassigning them from devices first. Idempotent by requestId.",
+		Long:  "MSP only. Moves MSP-owned licenses held by a managed client back to the pool, optionally unassigning them from devices first. Idempotent by requestId.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1086,9 +1298,10 @@ func newRegisterCameraToClientCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-camera-to-client",
 		Short: "Register camera to client",
-		Long:  "Register a controlled camera to a client",
+		Long:  "Register a controlled camera to a client\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1126,9 +1339,10 @@ func newRegisterDealCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-deal",
 		Short: "Register deal",
-		Long:  "Register a deal",
+		Long:  "Register a deal\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1158,9 +1372,10 @@ func newUpdateManagedClientPolicyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-managed-client-policy",
 		Short: "Update managed client policy",
-		Long:  "MSP only. Sets the per-client policy on a managed org, currently whether client-org users may assign the Super Admin role.",
+		Long:  "MSP only. Sets the per-client policy on a managed org, currently whether client-org users may assign the Super Admin role.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -1192,9 +1407,10 @@ func newUpdateManuallySendLicenseExpirationEmailCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-manually-send-license-expiration-email",
 		Short: "Update send license expiration email",
-		Long:  "Update send license expiration email feature flag by org",
+		Long:  "Update send license expiration email feature flag by org\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
