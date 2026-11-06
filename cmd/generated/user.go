@@ -144,9 +144,10 @@ func newGetPartnerUsersInOrgCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-partner-users-in-org",
 		Short: "Get partner users in organization",
-		Long:  "Get list of all partners in organization with partner-specific user details and permissions.",
+		Long:  "Get list of all partners in organization with partner-specific user details and permissions.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -248,9 +249,10 @@ func newUpdatePartnerUserCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-partner-user",
 		Short: "Update partner user details",
-		Long:  "Update a partner's details with partner-specific validation and audit logging.",
+		Long:  "Update a partner's details with partner-specific validation and audit logging.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
@@ -294,9 +296,10 @@ func newUpdatePartnerUserNotificationSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-partner-user-notification-settings",
 		Short: "Update partner user notification settings",
-		Long:  "Update notification settings for partner user with partner-specific notification configurations.",
+		Long:  "Update notification settings for partner user with partner-specific notification configurations.\n\nPartner-only: runs as your partner organization, so --partner-org (or a profile's client org) is not sent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
+			cfg.PartnerOrg = ""
 			flags := params.CollectFlags(cmd)
 			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
 			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")

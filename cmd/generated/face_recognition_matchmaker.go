@@ -283,27 +283,27 @@ func newUploadFaceMatchmakersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload-face-matchmakers",
 		Short: "Upload face matchmakers",
-		Long:  "Upload face matchmaker images for one or more people. The uploaded file name is matched to a person's name. If a person is not found and createPersonIfNotFound is set to true, a new person is created. ",
+		Long:  "Upload face matchmaker images for one or more people. The uploaded file name is matched to a person's name. If a person is not found and createPersonIfNotFound is set to true, a new person is created. \n\nMultipart upload: pass each form field as --field name=value and the file as --file path (part \"file\"), or --file part=path for another part name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
-			flags := params.CollectFlags(cmd)
-			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
-			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
-			if skeleton {
-				return params.PrintSkeleton(nil)
-			}
-			body, err := params.BuildBody(flags, cliJSON)
+			fieldArgs, _ := cmd.Flags().GetStringArray("field")
+			fileArgs, _ := cmd.Flags().GetStringArray("file")
+			fields, err := params.ParseFormFields(fieldArgs)
 			if err != nil {
 				return err
 			}
-			result, err := client.APICall(cfg, "/api/faceRecognition/matchmaker/uploadFaceMatchmakers", body)
+			files, err := params.ParseFileParts(fileArgs)
+			if err != nil {
+				return err
+			}
+			result, err := client.MultipartCall(cfg, "/api/faceRecognition/matchmaker/uploadFaceMatchmakers", fields, files)
 			if err != nil {
 				return err
 			}
 			return output.FormatOutput(cmd, result)
 		},
 	}
-	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
-	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	cmd.Flags().StringArray("field", nil, "Form field as name=value (repeatable)")
+	cmd.Flags().StringArray("file", nil, "File to upload: path (sent as part \"file\") or part=path (repeatable)")
 	return cmd
 }

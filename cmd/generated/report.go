@@ -24,6 +24,7 @@ func NewReportCmd() *cobra.Command {
 	cmd.AddCommand(newGetCustomEventsBinaryCountsCmd())
 	cmd.AddCommand(newGetCustomEventsNumericCountsCmd())
 	cmd.AddCommand(newGetCustomEventsReportCmd())
+	cmd.AddCommand(newGetDeviceLicenseReportCmd())
 	cmd.AddCommand(newGetDiagnosticFeedCmd())
 	cmd.AddCommand(newGetIntegrationDiagnosticEventsCmd())
 	cmd.AddCommand(newGetLicensePlatesByDeviceCmd())
@@ -416,6 +417,35 @@ func newGetCustomEventsReportCmd() *cobra.Command {
 	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("prompt-uuid", "", "base 64 (url-safe) uuid string")
 	cmd.Flags().String("start-time-ms", "", "The start timestamp (in Unix epoch milliseconds) of the selected interval")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetDeviceLicenseReportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-device-license-report",
+		Short: "Get device license report",
+		Long:  "Get every registered device with its assigned license, plus door and unassigned licenses. Same rows as /export/deviceLicenses.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/report/getDeviceLicenseReport", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

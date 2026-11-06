@@ -8,12 +8,16 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/RhombusSystems/rhombus-cli/internal/auth"
 	"github.com/RhombusSystems/rhombus-cli/internal/config"
+	"github.com/RhombusSystems/rhombus-cli/internal/params"
 )
 
 var (
@@ -27,9 +31,54 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
+	return post(cfg, path, "application/json", jsonBody, string(jsonBody))
+}
+
+// MultipartCall POSTs a multipart/form-data body: the form fields in order, then each file as a part with its base
+// name as the filename and Content-Type application/octet-stream, which the API reads as undeclared and types from
+// the file extension.
+func MultipartCall(cfg config.Config, path string, fields []params.FormField, files []params.FilePart) (map[string]any, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	summary := make([]string, 0, len(fields)+len(files))
+
+	for _, field := range fields {
+		if err := writer.WriteField(field.Name, field.Value); err != nil {
+			return nil, fmt.Errorf("writing form field %s: %w", field.Name, err)
+		}
+		summary = append(summary, fmt.Sprintf("%s=%s", field.Name, field.Value))
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file.Path)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", file.Path, err)
+		}
+		part, err := writer.CreateFormFile(file.Name, filepath.Base(file.Path))
+		if err != nil {
+			return nil, fmt.Errorf("writing file part %s: %w", file.Name, err)
+		}
+		if _, err := part.Write(data); err != nil {
+			return nil, fmt.Errorf("writing file part %s: %w", file.Name, err)
+		}
+		summary = append(summary, fmt.Sprintf("%s=@%s (%d bytes)", file.Name, filepath.Base(file.Path), len(data)))
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("closing multipart body: %w", err)
+	}
+
+	// The verbose log lists field values and file names, never file contents.
+	return post(cfg, path, writer.FormDataContentType(), buf.Bytes(), strings.Join(summary, "\n> "))
+}
+
+// post sends body to path with the profile's credential headers and returns the parsed JSON response. An OAuth
+// token the server rejects (HTTP 401) is refreshed and the request retried once with the same body.
+func post(cfg config.Config, path, contentType string, body []byte, verboseBody string) (map[string]any, error) {
 	client := http.DefaultClient
 	if auth.UsesClientCert(cfg) {
 		// mTLS cert-based auth
+		var err error
 		client, err = getCertClient(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("loading client certificate: %w", err)
@@ -37,21 +86,20 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 	}
 
 	url := cfg.EndpointURL + path
+
 	var resp *http.Response
 	var respBody []byte
-	// An OAuth token the server rejects (HTTP 401) is refreshed and the request
-	// retried once.
 	for attempt := 0; ; attempt++ {
 		authHeaders, err := auth.Headers(cfg)
 		if err != nil {
 			return nil, err
 		}
 
-		req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
+		req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 		for k, v := range authHeaders {
 			req.Header[k] = v
@@ -69,7 +117,7 @@ func APICall(cfg config.Config, path string, body map[string]any) (map[string]an
 					fmt.Fprintf(os.Stderr, "> %s: %s\n", k, v)
 				}
 			}
-			fmt.Fprintf(os.Stderr, ">\n> %s\n>\n", string(jsonBody))
+			fmt.Fprintf(os.Stderr, ">\n> %s\n>\n", verboseBody)
 		}
 
 		resp, err = client.Do(req)

@@ -322,7 +322,7 @@ func newRevealWebhookSecretsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reveal-webhook-secrets",
 		Short: "Reveal rule webhook secrets",
-		Long:  "Return the shared secret of each webhook action on a rule, keyed by webhook URL, giving one to any webhook action that has none. Requires integration administration; audited.",
+		Long:  "Return the shared secret that signs each webhook action on a rule, keyed by webhook URL, giving one to any webhook action that has none. In ORG signing mode that is the organization webhook secret for every URL. Requires integration administration; audited.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)
@@ -354,7 +354,7 @@ func newRules_rotateWebhookSecretCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules_rotate-webhook-secret",
 		Short: "Rotate rule webhook secret",
-		Long:  "Give a rule's webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours. Works for every rule type. Requires integration administration; audited.",
+		Long:  "Give a rule's webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours. Works for every rule type. Refused in ORG signing mode, where rotateOrgWebhookSecret rotates the one secret that signs every webhook. Requires integration administration; audited.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)

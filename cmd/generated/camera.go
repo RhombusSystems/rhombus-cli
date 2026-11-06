@@ -47,6 +47,7 @@ func NewCameraCmd() *cobra.Command {
 	cmd.AddCommand(newGetCameraMinimalListCmd())
 	cmd.AddCommand(newGetCameraOfflineLanStreamingInfoCmd())
 	cmd.AddCommand(newGetCameraPresenceWindowsCmd())
+	cmd.AddCommand(newGetCameraPtzPatrolCmd())
 	cmd.AddCommand(newGetCameraRawHttpStreamsCmd())
 	cmd.AddCommand(newGetCloudArchivedMediaInfoCmd())
 	cmd.AddCommand(newGetCloudArchivingConfigCmd())
@@ -55,8 +56,11 @@ func NewCameraCmd() *cobra.Command {
 	cmd.AddCommand(newGetFootageBoundingBoxesForMultipleCmd())
 	cmd.AddCommand(newGetFootageSeekpointsForMultipleCmd())
 	cmd.AddCommand(newGetFullCameraStateCmd())
+	cmd.AddCommand(newGetLineCrossingEnabledCamerasCmd())
+	cmd.AddCommand(newGetLineCrossingEnabledCamerasForLocationCmd())
 	cmd.AddCommand(newGetMinimalCameraLocationMapCmd())
 	cmd.AddCommand(newGetMinimalCameraStateListCmd())
+	cmd.AddCommand(newGetOccupancyEnabledCamerasCmd())
 	cmd.AddCommand(newGetStorageRecoveryFileCmd())
 	cmd.AddCommand(newGetUptimeWindowsCmd())
 	cmd.AddCommand(newGetUptimeWindowsForOrgCmd())
@@ -72,6 +76,7 @@ func NewCameraCmd() *cobra.Command {
 	cmd.AddCommand(newUpdateCameraDetailsCmd())
 	cmd.AddCommand(newUpdateCameraDetailsV2Cmd())
 	cmd.AddCommand(newUpdateCameraLineCrossingThresholdsCmd())
+	cmd.AddCommand(newUpdateCameraPtzPatrolCmd())
 	cmd.AddCommand(newUpdateCameraWifiCmd())
 	cmd.AddCommand(newUpdateDetailsBulkV2Cmd())
 	cmd.AddCommand(newUpdateFirmwareCmd())
@@ -1210,6 +1215,38 @@ func newGetCameraPresenceWindowsCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetCameraPtzPatrolCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-camera-ptz-patrol",
+		Short: "Get PTZ patrol",
+		Long:  "Get the patrol of a first-party mechanical PTZ camera: whether it is on and the points it visits",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/getPtzPatrol", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetCameraRawHttpStreamsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-camera-raw-http-streams",
@@ -1490,6 +1527,67 @@ func newGetFullCameraStateCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetLineCrossingEnabledCamerasCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-line-crossing-enabled-cameras",
+		Short: "Get line crossing enabled cameras",
+		Long:  "Gets all cameras in the org that have line-crossing feature enabled",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/getLineCrossingEnabledCameras", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetLineCrossingEnabledCamerasForLocationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-line-crossing-enabled-cameras-for-location",
+		Short: "Get line crossing enabled cameras for location",
+		Long:  "Gets all the cameras that have line-crossing feature enabled at a location",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "locationUuid", FlagName: "location-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA"},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/getLineCrossingEnabledCamerasForLocation", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("location-uuid", "", "base 64 (url-safe) uuid string")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newGetMinimalCameraLocationMapCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-minimal-camera-location-map",
@@ -1546,6 +1644,35 @@ func newGetMinimalCameraStateListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("include-mummified", "", "Whether to include mummified cameras in the response")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newGetOccupancyEnabledCamerasCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-occupancy-enabled-cameras",
+		Short: "Get occupancy enabled cameras",
+		Long:  "Gets all the cameras that have a occupancy polygon defined",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/getOccupancyEnabledCameras", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
@@ -2115,6 +2242,42 @@ func newUpdateCameraLineCrossingThresholdsCmd() *cobra.Command {
 	cmd.Flags().String("object-type", "", "")
 	cmd.Flags().String("point-a", "", "")
 	cmd.Flags().String("point-b", "", "")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newUpdateCameraPtzPatrolCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-camera-ptz-patrol",
+		Short: "Update PTZ patrol",
+		Long:  "Set the patrol points of a first-party mechanical PTZ camera, or turn its patrol on or off. The camera picks the change up from its config.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "cameraUuid", FlagName: "camera-uuid", Type: "string", Required: false, Example: "AAAAAAAAAAAAAAAAAAAAAA.v0"},
+					{Name: "enabled", FlagName: "enabled", Type: "boolean", Required: false, Example: nil},
+					{Name: "points", FlagName: "points", Type: "array", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/camera/updatePtzPatrol", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("camera-uuid", "", "RUUID with optional appended facet information")
+	cmd.Flags().String("enabled", "", "Turn the patrol on or off; leave out to keep the stored value")
+	cmd.Flags().String("points", "", "The full point list in visiting order, at most 32, replacing the stored list; leave out to keep the stored points. Changing the list restarts the patrol at the first point.")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd

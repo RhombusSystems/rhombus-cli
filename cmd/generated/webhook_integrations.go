@@ -18,8 +18,12 @@ func NewWebhookIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newDeleteWebhookIntegrationCmd())
 	cmd.AddCommand(newDeleteWebhookIntegrationV2Cmd())
 	cmd.AddCommand(newGetWebhookIntegrationCmd())
+	cmd.AddCommand(newGetWebhookSigningCmd())
+	cmd.AddCommand(newRevealOrgWebhookSecretCmd())
 	cmd.AddCommand(newRevealWebhookSecretCmd())
+	cmd.AddCommand(newRotateOrgWebhookSecretCmd())
 	cmd.AddCommand(newRotateWebhookSecretCmd())
+	cmd.AddCommand(newSetWebhookSigningModeCmd())
 	cmd.AddCommand(newSubscribeZapierWebhookCmd())
 	cmd.AddCommand(newUnsubscribeZapierWebhookCmd())
 	cmd.AddCommand(newUpdateWebhookIntegrationCmd())
@@ -114,11 +118,69 @@ func newGetWebhookIntegrationCmd() *cobra.Command {
 	return cmd
 }
 
+func newGetWebhookSigningCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-webhook-signing",
+		Short: "Get webhook signing",
+		Long:  "Return which secret signs the organization's webhooks: each webhook's own (PER_WEBHOOK, the default) or the organization webhook secret (ORG), with when the mode last changed and whether the secret that signed before still signs; never a secret",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/getWebhookSigning", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newRevealOrgWebhookSecretCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reveal-org-webhook-secret",
+		Short: "Reveal organization webhook secret",
+		Long:  "Return the organization webhook secret, assigning one if the organization has none yet, in either signing mode so receivers can be set up before switching to ORG; audited",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/revealOrgWebhookSecret", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newRevealWebhookSecretCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reveal-webhook-secret",
 		Short: "Reveal webhook secret",
-		Long:  "Return the shared secret of an activity or diagnostic webhook; audited",
+		Long:  "Return the shared secret that signs an activity or diagnostic webhook: its own, or the organization webhook secret in ORG signing mode; audited",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)
@@ -146,11 +208,40 @@ func newRevealWebhookSecretCmd() *cobra.Command {
 	return cmd
 }
 
+func newRotateOrgWebhookSecretCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotate-org-webhook-secret",
+		Short: "Rotate organization webhook secret",
+		Long:  "Give the organization a new organization webhook secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours; audited",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton(nil)
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/rotateOrgWebhookSecret", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
 func newRotateWebhookSecretCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rotate-webhook-secret",
 		Short: "Rotate webhook secret",
-		Long:  "Give an activity or diagnostic webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours; audited",
+		Long:  "Give an activity or diagnostic webhook a new shared secret and return it; the replaced secret keeps signing, in the -previous headers, for 24 hours. Refused in ORG signing mode, where rotateOrgWebhookSecret rotates the one secret that signs every webhook; audited",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.LoadFromCmd(cmd)
 			flags := params.CollectFlags(cmd)
@@ -173,6 +264,38 @@ func newRotateWebhookSecretCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("webhook-url", "", "URL of the activity or diagnostic webhook whose secret to rotate")
+	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
+	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
+	return cmd
+}
+
+func newSetWebhookSigningModeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set-webhook-signing-mode",
+		Short: "Set webhook signing mode",
+		Long:  "Choose which secret signs the organization's webhooks: PER_WEBHOOK (each webhook's own) or ORG (the organization webhook secret, assigned on switching if the organization has none). For 7 days after a change the secret that signed before also signs, in the -previous headers; audited",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := config.LoadFromCmd(cmd)
+			flags := params.CollectFlags(cmd)
+			cliJSON, _ := cmd.Flags().GetString("cli-input-json")
+			skeleton, _ := cmd.Flags().GetBool("generate-cli-skeleton")
+			if skeleton {
+				return params.PrintSkeleton([]params.ParamMeta{
+					{Name: "mode", FlagName: "mode", Type: "string", Required: false, Example: nil},
+				})
+			}
+			body, err := params.BuildBody(flags, cliJSON)
+			if err != nil {
+				return err
+			}
+			result, err := client.APICall(cfg, "/api/integrations/webhooks/setWebhookSigningMode", body)
+			if err != nil {
+				return err
+			}
+			return output.FormatOutput(cmd, result)
+		},
+	}
+	cmd.Flags().String("mode", "", "")
 	cmd.Flags().String("cli-input-json", "", "JSON input (inline or file://path)")
 	cmd.Flags().Bool("generate-cli-skeleton", false, "Print input skeleton and exit")
 	return cmd
