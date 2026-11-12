@@ -11,7 +11,7 @@ Guidance for AI coding agents working in this repository or using the `rhombus` 
 - **Auth**: set `RHOMBUS_API_KEY` (create a key at <https://console.rhombus.com/settings/api-management>), or run `rhombus login` (interactive browser OAuth) / `rhombus configure` for stored profiles. `RHOMBUS_PROFILE` selects between profiles.
 - **Discoverability**: `rhombus --help` lists every command group; `rhombus <group> --help` lists operations. Generated command names are kebab-case versions of API operations (e.g. `rhombus camera get-minimal-camera-state-list`).
 - **Output**: commands emit JSON suitable for piping; prefer exact field extraction over screen-scraping.
-- **The API itself**: base URL `https://api2.rhombussystems.com/api`, all endpoints are POST with JSON bodies, headers `x-auth-scheme: api-token` + `x-auth-apikey`. Full OpenAPI 3.0 spec: <https://api2.rhombussystems.com/api/openapi/public.json> (checked into this repo as `openapi.json`).
+- **The API itself**: base URL `https://api2.rhombussystems.com/api`, all endpoints are POST with JSON bodies, headers `x-auth-scheme: api-token` + `x-auth-apikey`. Full OpenAPI 3.0 spec: <https://api2.rhombussystems.com/api/openapi/public.json> (checked into this repo as `openapi.json`). `/api/component*` endpoints are served by the component service's own host, `https://api-component.rhombussystems.com/api` (EU: `api-component.eu.rhombussystems.com`), which the CLI calls directly.
 
 ## Working on this repository
 

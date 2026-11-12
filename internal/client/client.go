@@ -85,7 +85,7 @@ func post(cfg config.Config, path, contentType string, body []byte, verboseBody 
 		}
 	}
 
-	url := cfg.EndpointURL + path
+	url := baseURL(cfg, path) + path
 
 	var resp *http.Response
 	var respBody []byte
@@ -167,6 +167,22 @@ func post(cfg config.Config, path, contentType string, body []byte, verboseBody 
 	}
 
 	return result, nil
+}
+
+// componentPathPrefix marks calls served by the component service, which has its
+// own public host (cfg.ComponentEndpointURL). Covers /api/component/elevator/...
+const componentPathPrefix = "/api/component"
+
+// baseURL returns the host a call to path goes to. /api/component* calls go
+// straight to the component service's host, except when no component endpoint
+// is resolved (a custom --endpoint-url without --component-endpoint-url, see
+// config) or when the request authenticates with a client certificate, which
+// that host does not accept yet. Everything else goes to cfg.EndpointURL.
+func baseURL(cfg config.Config, path string) string {
+	if strings.HasPrefix(path, componentPathPrefix) && cfg.ComponentEndpointURL != "" && !auth.UsesClientCert(cfg) {
+		return cfg.ComponentEndpointURL
+	}
+	return cfg.EndpointURL
 }
 
 // GetHTTPClient returns the appropriate HTTP client for the given config (mTLS or default).

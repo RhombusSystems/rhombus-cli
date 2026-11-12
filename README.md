@@ -76,6 +76,16 @@ Prompts for an API key, output format, and endpoint URL. Useful when you already
 | `RHOMBUS_PROFILE` | Profile name (default: `default`) |
 | `RHOMBUS_OUTPUT` | Output format: `json` (`table`/`text` currently fall back to JSON) |
 | `RHOMBUS_ENDPOINT_URL` | API endpoint override |
+| `RHOMBUS_COMPONENT_ENDPOINT_URL` | Endpoint override for `/api/component*` calls (see [Component endpoint](#component-endpoint)) |
+
+### Component endpoint
+
+Calls to `/api/component*` (the `rhombus component` and `rhombus elevator` commands) go straight to the component service's own host: `https://api-component.rhombussystems.com`, or `https://api-component.eu.rhombussystems.com` for EU profiles. Override it with `--component-endpoint-url`, `RHOMBUS_COMPONENT_ENDPOINT_URL`, or `component_endpoint_url` in the profile's section of `~/.rhombus/config` (in that order of precedence).
+
+These calls use the main endpoint instead when:
+
+- the main endpoint is custom (`--endpoint-url`, `RHOMBUS_ENDPOINT_URL` or `endpoint_url` set to anything other than the US or EU default) and no component endpoint is set, or
+- the profile authenticates with a client certificate.
 
 ### Profiles
 
@@ -97,12 +107,13 @@ rhombus <command> [subcommand] [flags]
 ### Global flags
 
 ```
---profile string       Configuration profile (default: "default")
---output string        Output format: json (default; table/text fall back to JSON)
---api-key string       Override API key
---endpoint-url string  Override API endpoint
---partner-org string   Client org name or UUID (partner accounts)
---verbose              Print full HTTP request and response details
+--profile string                 Configuration profile (default: "default")
+--output string                  Output format: json (default; table/text fall back to JSON)
+--api-key string                 Override API key
+--endpoint-url string            Override API endpoint
+--component-endpoint-url string  Override the endpoint for /api/component* calls
+--partner-org string             Client org name or UUID (partner accounts)
+--verbose                        Print full HTTP request and response details
 ```
 
 ## Commands
