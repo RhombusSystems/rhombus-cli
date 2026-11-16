@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -14,14 +15,8 @@ import (
 const (
 	DefaultEndpointURL = "https://api2.rhombussystems.com"
 	EUEndpointURL      = "https://api2.eu.rhombussystems.com"
-
-	// The component service (/api/component*) runs separately from the main API
-	// and has its own public host per region; see ComponentEndpointURL.
-	DefaultComponentEndpointURL = "https://api-component.rhombussystems.com"
-	EUComponentEndpointURL      = "https://api-component.eu.rhombussystems.com"
-
-	DefaultOutput  = "json"
-	DefaultProfile = "default"
+	DefaultOutput      = "json"
+	DefaultProfile     = "default"
 
 	AuthTypeToken = "token"
 	AuthTypeCert  = "cert"
@@ -39,17 +34,6 @@ func EndpointForRegion(region string) string {
 		return EUEndpointURL
 	default:
 		return DefaultEndpointURL
-	}
-}
-
-// ComponentEndpointForRegion returns the component service's public host for
-// the given region. Unknown regions fall back to the US host.
-func ComponentEndpointForRegion(region string) string {
-	switch region {
-	case RegionEU:
-		return EUComponentEndpointURL
-	default:
-		return DefaultComponentEndpointURL
 	}
 }
 
@@ -122,10 +106,11 @@ type Config struct {
 	PartnerOrg  string // client org UUID for partner emulation (set via --partner-org flag)
 	Verbose     bool   // print full HTTP request and response details
 
-	// ComponentEndpointURL is the base URL for /api/component* calls: the
-	// component service's own public host. Empty means those calls go to
-	// EndpointURL like every other call. See resolveComponentEndpoint.
-	ComponentEndpointURL string
+	// ServiceEndpoints maps a Service's Name to the base URL for the calls it
+	// serves: the service's own public host. A missing or empty entry means
+	// those calls go to EndpointURL like every other call. See Services and
+	// resolveServiceEndpoints.
+	ServiceEndpoints map[string]string
 
 	// OAuth browser-login client. These are obtained automatically via dynamic
 	// client registration (DCR) on first `rhombus login` and persisted so the
@@ -144,10 +129,10 @@ type Config struct {
 
 	credProfile string // credentials section the values above were read from
 
-	// componentOverride is an explicitly configured component endpoint (flag,
-	// env var or profile), kept apart from the region default so a later
-	// --endpoint-url can still decide the default.
-	componentOverride string
+	// serviceOverrides holds explicitly configured service endpoints (flag, env
+	// var or profile) by Service name, kept apart from the region defaults so a
+	// later --endpoint-url can still decide the defaults.
+	serviceOverrides map[string]string
 }
 
 // CredentialsProfile returns the credentials-file section this config was loaded
@@ -166,21 +151,6 @@ func (c Config) RegionOrDefault() string {
 		return r
 	}
 	return c.Region
-}
-
-// resolveComponentEndpoint sets ComponentEndpointURL from the explicit override
-// if there is one. Otherwise it is the component host for the main endpoint's
-// region, or empty when the main endpoint is custom (not one of the regional
-// defaults): a custom deployment's component calls stay on that deployment.
-func (c *Config) resolveComponentEndpoint() {
-	if c.componentOverride != "" {
-		c.ComponentEndpointURL = c.componentOverride
-		return
-	}
-	c.ComponentEndpointURL = ""
-	if r := RegionForEndpoint(c.EndpointURL); r != "" {
-		c.ComponentEndpointURL = ComponentEndpointForRegion(r)
-	}
 }
 
 func configDir() string {
@@ -215,8 +185,10 @@ func LoadConfig(profile string) Config {
 			if k, err := s.GetKey("endpoint_url"); err == nil {
 				cfg.EndpointURL = k.String()
 			}
-			if k, err := s.GetKey("component_endpoint_url"); err == nil {
-				cfg.componentOverride = k.String()
+			for _, svc := range Services {
+				if k, err := s.GetKey(svc.ProfileKey); err == nil {
+					cfg.setServiceOverride(svc, k.String())
+				}
 			}
 			if k, err := s.GetKey("region"); err == nil {
 				cfg.Region = k.String()
@@ -275,11 +247,11 @@ func LoadConfig(profile string) Config {
 	if v := os.Getenv("RHOMBUS_ENDPOINT_URL"); v != "" {
 		cfg.EndpointURL = v
 	}
-	if v := os.Getenv("RHOMBUS_COMPONENT_ENDPOINT_URL"); v != "" {
-		cfg.componentOverride = v
+	for _, svc := range Services {
+		cfg.setServiceOverride(svc, os.Getenv(svc.EnvVar))
 	}
 
-	cfg.resolveComponentEndpoint()
+	cfg.resolveServiceEndpoints()
 	return cfg
 }
 
@@ -307,8 +279,9 @@ func LoadFromCmd(cmd *cobra.Command) Config {
 	if v, _ := cmd.Root().PersistentFlags().GetString("endpoint-url"); v != "" {
 		cfg.EndpointURL = v
 	}
-	if v, _ := cmd.Root().PersistentFlags().GetString("component-endpoint-url"); v != "" {
-		cfg.componentOverride = v
+	for _, svc := range Services {
+		v, _ := cmd.Root().PersistentFlags().GetString(svc.Flag)
+		cfg.setServiceOverride(svc, v)
 	}
 	if v, _ := cmd.Root().PersistentFlags().GetString("output"); v != "" {
 		cfg.Output = v
@@ -320,7 +293,7 @@ func LoadFromCmd(cmd *cobra.Command) Config {
 		cfg.Verbose = true
 	}
 
-	cfg.resolveComponentEndpoint()
+	cfg.resolveServiceEndpoints()
 	return cfg
 }
 
@@ -591,8 +564,10 @@ func sectionName(f *ini.File, profile string) string {
 func PrintConfig(cfg Config) {
 	fmt.Printf("Profile:      %s\n", cfg.Profile)
 	fmt.Printf("Endpoint URL: %s\n", cfg.EndpointURL)
-	if cfg.ComponentEndpointURL != "" {
-		fmt.Printf("Component:    %s\n", cfg.ComponentEndpointURL)
+	for _, s := range Services {
+		if ep := cfg.ServiceEndpoints[s.Name]; ep != "" {
+			fmt.Printf("%-14s%s\n", strings.ToUpper(s.Name[:1])+s.Name[1:]+":", ep)
+		}
 	}
 	fmt.Printf("Output:       %s\n", cfg.Output)
 	fmt.Printf("Auth Type:    %s\n", cfg.AuthType)

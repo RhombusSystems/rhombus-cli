@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/RhombusSystems/rhombus-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -27,7 +28,10 @@ func CollectFlags(cmd *cobra.Command) map[string]string {
 		// Skip meta-flags and root persistent flags
 		switch f.Name {
 		case "cli-input-json", "generate-cli-skeleton",
-			"profile", "output", "api-key", "endpoint-url", "component-endpoint-url", "partner-org", "verbose":
+			"profile", "output", "api-key", "endpoint-url", "partner-org", "verbose":
+			return
+		}
+		if config.IsServiceFlag(f.Name) {
 			return
 		}
 		flags[f.Name] = f.Value.String()

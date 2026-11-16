@@ -37,8 +37,8 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 ### Internal packages
 
 - **`internal/auth`** — Credential headers for every request (REST, media, WebSocket): API key, mTLS, OAuth (`auth_type=oauth`), partner schemes, `x-auth-org`. Refreshes OAuth access tokens under a lock on `~/.rhombus/credentials.lock`.
-- **`internal/client`** — HTTP client with auth handling (API key, mTLS, partner tokens). All API calls go through `APICall(cfg, path, body)` (JSON) or `MultipartCall(cfg, path, fields, files)`; both share auth headers, mTLS and the OAuth 401 refresh-and-retry. `/api/component*` paths go to `cfg.ComponentEndpointURL` (the component service's own host) unless it is empty or the request uses a client certificate; everything else goes to `cfg.EndpointURL`. Verbose logging via `--verbose` flag.
-- **`internal/config`** — Config loading with precedence: CLI flags > env vars (`RHOMBUS_API_KEY`, `RHOMBUS_PROFILE`, `RHOMBUS_OUTPUT`, `RHOMBUS_ENDPOINT_URL`, `RHOMBUS_COMPONENT_ENDPOINT_URL`) > profile INI files (`~/.rhombus/config`, `~/.rhombus/credentials`) > defaults. With no explicit component endpoint, `ComponentEndpointURL` defaults to the regional `api-component` host when `EndpointURL` is the US or EU default, and is empty for a custom endpoint.
+- **`internal/client`** — HTTP client with auth handling (API key, mTLS, partner tokens). All API calls go through `APICall(cfg, path, body)` (JSON) or `MultipartCall(cfg, path, fields, files)`; both share auth headers, mTLS and the OAuth 401 refresh-and-retry. Paths served by a service with its own host (`config.Services`: `/api/component*` → component, `/api/search*` and `/api/eventSearchV2*` → search, `/api/robot*` → robot, matched on whole path segments) go to `cfg.ServiceEndpoints[name]` unless it is empty or the request uses a client certificate; everything else goes to `cfg.EndpointURL`. Verbose logging via `--verbose` flag.
+- **`internal/config`** — Config loading with precedence: CLI flags > env vars (`RHOMBUS_API_KEY`, `RHOMBUS_PROFILE`, `RHOMBUS_OUTPUT`, `RHOMBUS_ENDPOINT_URL`, `RHOMBUS_COMPONENT_ENDPOINT_URL`, `RHOMBUS_SEARCH_ENDPOINT_URL`, `RHOMBUS_ROBOT_ENDPOINT_URL`) > profile INI files (`~/.rhombus/config`, `~/.rhombus/credentials`) > defaults. `config.Services` (`internal/config/services.go`) is the one table of services with their own hosts: path prefixes, US/EU hosts, and override flag/env var/profile key. With no explicit endpoint for a service, `ServiceEndpoints` holds its regional host (`api-component`, `api-search`, `api-robot`) when `EndpointURL` is the US or EU default, and no entry for a custom endpoint.
 - **`internal/output`** — Output formatting. JSON is implemented; table/text are Phase 2 stubs.
 - **`internal/params`** — Flag collection, JSON body building, `--cli-input-json` / `--generate-cli-skeleton` support. Converts kebab-case flags to camelCase for the API.
 
@@ -48,7 +48,7 @@ This is a CLI for the Rhombus physical security platform API, built with Cobra. 
 
 ### Key patterns
 
-- Global persistent flags on root: `--profile`, `--output`, `--api-key`, `--endpoint-url`, `--component-endpoint-url`, `--partner-org`, `--verbose`. These are excluded from API request bodies via `CollectFlags`.
+- Global persistent flags on root: `--profile`, `--output`, `--api-key`, `--endpoint-url`, `--component-endpoint-url`, `--search-endpoint-url`, `--robot-endpoint-url` (registered from `config.Services`), `--partner-org`, `--verbose`. These are excluded from API request bodies via `CollectFlags`.
 - Partner/multi-tenant: `--partner-org` accepts name or UUID; PersistentPreRunE resolves names to UUIDs via the partner API.
 - Auth modes: token (`x-auth-apikey` header), mTLS (client cert/key with custom PEM parsing for negative serial numbers), OAuth2 browser login (stores access + refresh tokens; public PKCE client, no secret).
 - WebSocket monitoring uses STOMP 1.2 protocol with heartbeats and reconnection.

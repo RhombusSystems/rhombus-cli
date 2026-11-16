@@ -76,15 +76,31 @@ Prompts for an API key, output format, and endpoint URL. Useful when you already
 | `RHOMBUS_PROFILE` | Profile name (default: `default`) |
 | `RHOMBUS_OUTPUT` | Output format: `json` (`table`/`text` currently fall back to JSON) |
 | `RHOMBUS_ENDPOINT_URL` | API endpoint override |
-| `RHOMBUS_COMPONENT_ENDPOINT_URL` | Endpoint override for `/api/component*` calls (see [Component endpoint](#component-endpoint)) |
+| `RHOMBUS_COMPONENT_ENDPOINT_URL` | Endpoint override for `/api/component*` calls (see [Service endpoints](#service-endpoints)) |
+| `RHOMBUS_SEARCH_ENDPOINT_URL` | Endpoint override for `/api/search*` and `/api/eventSearchV2*` calls (see [Service endpoints](#service-endpoints)) |
+| `RHOMBUS_ROBOT_ENDPOINT_URL` | Endpoint override for `/api/robot*` calls (see [Service endpoints](#service-endpoints)) |
 
-### Component endpoint
+### Service endpoints
 
-Calls to `/api/component*` (the `rhombus component` and `rhombus elevator` commands) go straight to the component service's own host: `https://api-component.rhombussystems.com`, or `https://api-component.eu.rhombussystems.com` for EU profiles. Override it with `--component-endpoint-url`, `RHOMBUS_COMPONENT_ENDPOINT_URL`, or `component_endpoint_url` in the profile's section of `~/.rhombus/config` (in that order of precedence).
+Some API services run apart from the main API, and the CLI calls their own hosts directly:
 
-These calls use the main endpoint instead when:
+| Service | Calls | Commands | Host | EU host |
+|---|---|---|---|---|
+| component | `/api/component*` | `rhombus component`, `rhombus elevator` | `https://api-component.rhombussystems.com` | `https://api-component.eu.rhombussystems.com` |
+| search | `/api/search*`, `/api/eventSearchV2*` | `rhombus search`, `rhombus elements events`, `rhombus netbox events`, `rhombus onguard events` | `https://api-search.rhombussystems.com` | `https://api-search.eu.rhombussystems.com` |
+| robot | `/api/robot*` | `rhombus robot` | `https://api-robot.rhombussystems.com` | `https://api-robot.eu.rhombussystems.com` |
 
-- the main endpoint is custom (`--endpoint-url`, `RHOMBUS_ENDPOINT_URL` or `endpoint_url` set to anything other than the US or EU default) and no component endpoint is set, or
+Paths match on whole segments: `/api/search/...` goes to the search host, `/api/searchFoo/...` does not. Override a service's host with its flag, environment variable, or key in the profile's section of `~/.rhombus/config` (in that order of precedence):
+
+| Service | Flag | Environment variable | Profile key |
+|---|---|---|---|
+| component | `--component-endpoint-url` | `RHOMBUS_COMPONENT_ENDPOINT_URL` | `component_endpoint_url` |
+| search | `--search-endpoint-url` | `RHOMBUS_SEARCH_ENDPOINT_URL` | `search_endpoint_url` |
+| robot | `--robot-endpoint-url` | `RHOMBUS_ROBOT_ENDPOINT_URL` | `robot_endpoint_url` |
+
+A service's calls use the main endpoint instead when:
+
+- the main endpoint is custom (`--endpoint-url`, `RHOMBUS_ENDPOINT_URL` or `endpoint_url` set to anything other than the US or EU default) and no endpoint is set for that service, or
 - the profile authenticates with a client certificate.
 
 ### Profiles
@@ -112,6 +128,8 @@ rhombus <command> [subcommand] [flags]
 --api-key string                 Override API key
 --endpoint-url string            Override API endpoint
 --component-endpoint-url string  Override the endpoint for /api/component* calls
+--search-endpoint-url string     Override the endpoint for /api/search* and /api/eventSearchV2* calls
+--robot-endpoint-url string      Override the endpoint for /api/robot* calls
 --partner-org string             Client org name or UUID (partner accounts)
 --verbose                        Print full HTTP request and response details
 ```
