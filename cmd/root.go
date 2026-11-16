@@ -32,7 +32,9 @@ func init() {
 	rootCmd.PersistentFlags().String("output", "", "Output format: json, table, text")
 	rootCmd.PersistentFlags().String("api-key", "", "Override API key")
 	rootCmd.PersistentFlags().String("endpoint-url", "", "Override endpoint URL")
-	rootCmd.PersistentFlags().String("component-endpoint-url", "", "Override endpoint URL for /api/component* calls (default: the region's component host)")
+	for _, s := range config.Services {
+		rootCmd.PersistentFlags().String(s.Flag, "", s.FlagUsage())
+	}
 	rootCmd.PersistentFlags().String("partner-org", "", "Client org name or UUID for partner API calls")
 	rootCmd.PersistentFlags().Bool("verbose", false, "Print full HTTP request and response details")
 

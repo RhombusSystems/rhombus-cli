@@ -169,18 +169,15 @@ func post(cfg config.Config, path, contentType string, body []byte, verboseBody 
 	return result, nil
 }
 
-// componentPathPrefix marks calls served by the component service, which has its
-// own public host (cfg.ComponentEndpointURL). Covers /api/component/elevator/...
-const componentPathPrefix = "/api/component"
-
-// baseURL returns the host a call to path goes to. /api/component* calls go
-// straight to the component service's host, except when no component endpoint
-// is resolved (a custom --endpoint-url without --component-endpoint-url, see
-// config) or when the request authenticates with a client certificate, which
-// that host does not accept yet. Everything else goes to cfg.EndpointURL.
+// baseURL returns the host a call to path goes to. Calls to a service with its
+// own public host (config.Services: component, search, robot) go straight to
+// that host, except when no endpoint is resolved for the service (a custom
+// --endpoint-url without the service's own override, see config) or when the
+// request authenticates with a client certificate, which those hosts do not
+// accept yet. Everything else goes to cfg.EndpointURL.
 func baseURL(cfg config.Config, path string) string {
-	if strings.HasPrefix(path, componentPathPrefix) && cfg.ComponentEndpointURL != "" && !auth.UsesClientCert(cfg) {
-		return cfg.ComponentEndpointURL
+	if ep := cfg.ServiceEndpointFor(path); ep != "" && !auth.UsesClientCert(cfg) {
+		return ep
 	}
 	return cfg.EndpointURL
 }

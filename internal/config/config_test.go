@@ -17,7 +17,9 @@ func setHome(t *testing.T) string {
 	t.Setenv("RHOMBUS_API_KEY", "")
 	t.Setenv("RHOMBUS_PROFILE", "")
 	t.Setenv("RHOMBUS_ENDPOINT_URL", "")
-	t.Setenv("RHOMBUS_COMPONENT_ENDPOINT_URL", "")
+	for _, svc := range Services {
+		t.Setenv(svc.EnvVar, "")
+	}
 	return home
 }
 
