@@ -9,17 +9,18 @@ import (
 	"testing"
 )
 
-// Commands calling a service with its own host (component, search, robot, guest) go straight to that host through the root
+// Commands calling a service with its own host (component, search, robot, guest, integrations) go straight to that host through the root
 // command's flags and env vars, with no change to the generated code; other commands, and service commands under a
 // custom --endpoint-url with no service endpoint, stay on the main endpoint. The global flags are never sent in the
 // request body.
 func TestCommandsUseServiceEndpoints(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	serviceEnv := map[string]string{
-		"component": "RHOMBUS_COMPONENT_ENDPOINT_URL",
-		"search":    "RHOMBUS_SEARCH_ENDPOINT_URL",
-		"robot":     "RHOMBUS_ROBOT_ENDPOINT_URL",
-		"guest":     "RHOMBUS_GUEST_ENDPOINT_URL",
+		"component":    "RHOMBUS_COMPONENT_ENDPOINT_URL",
+		"search":       "RHOMBUS_SEARCH_ENDPOINT_URL",
+		"robot":        "RHOMBUS_ROBOT_ENDPOINT_URL",
+		"guest":        "RHOMBUS_GUEST_ENDPOINT_URL",
+		"integrations": "RHOMBUS_INTEGRATIONS_ENDPOINT_URL",
 	}
 	for _, env := range []string{"RHOMBUS_API_KEY", "RHOMBUS_PROFILE", "RHOMBUS_OUTPUT", "RHOMBUS_ENDPOINT_URL", "CLAUDECODE"} {
 		t.Setenv(env, "")
@@ -32,7 +33,7 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 	// would mask a global flag leaking into the request body.
 	resetFlags := func() {
 		for _, f := range []string{"api-key", "endpoint-url", "component-endpoint-url", "search-endpoint-url", "robot-endpoint-url",
-			"guest-endpoint-url"} {
+			"guest-endpoint-url", "integrations-endpoint-url"} {
 			_ = rootCmd.PersistentFlags().Set(f, "")
 		}
 	}
@@ -54,13 +55,13 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 			_, _ = w.Write([]byte(`{}`))
 		}))
 	}
-	mainSrv, componentSrv, searchSrv, robotSrv, guestSrv := server("main"), server("component"), server("search"),
-		server("robot"), server("guest")
-	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv, guestSrv} {
+	mainSrv, componentSrv, searchSrv, robotSrv, guestSrv, integrationsSrv := server("main"), server("component"),
+		server("search"), server("robot"), server("guest"), server("integrations")
+	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv, guestSrv, integrationsSrv} {
 		defer s.Close()
 	}
 	serviceURL := map[string]string{"component": componentSrv.URL, "search": searchSrv.URL, "robot": robotSrv.URL,
-		"guest": guestSrv.URL}
+		"guest": guestSrv.URL, "integrations": integrationsSrv.URL}
 
 	const (
 		doorLabel    = "/api/component/addAccessControlledDoorLabel"
@@ -70,6 +71,8 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 		v1Seekpoints = "/api/eventSearch/getCameraOrDoorbellCameraSeekpoints"
 		robotConfig  = "/api/robot/getConfig"
 		kiosk        = "/api/kiosk/updateKiosk"
+		webhook      = "/api/integrations/webhooks/getWebhookIntegration"
+		kisiDoors    = "/api/integrations/accessControl/getKisiDoors"
 		cameras      = "/api/camera/getMinimalCameraStateList"
 	)
 	doorCmd := []string{"component", "add-access-controlled-door-label"}
@@ -79,10 +82,13 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 	v1SeekpointsCmd := []string{"event-search", "get-camera-or-doorbell-camera-seekpoints"}
 	robotCmd := []string{"robot", "get-robot-config"}
 	kioskCmd := []string{"guest-management-kiosk", "update-kiosk"}
+	webhookCmd := []string{"webhook-integrations", "get-webhook-integration"}
+	kisiDoorsCmd := []string{"access-control-integrations", "get-kisi-doors"} // accesscontrol's: main endpoint
 	cameraCmd := []string{"camera", "get-minimal-camera-state-list"}
 
 	withFlags := []string{"--api-key", "k", "--endpoint-url", mainSrv.URL, "--component-endpoint-url", componentSrv.URL,
-		"--search-endpoint-url", searchSrv.URL, "--robot-endpoint-url", robotSrv.URL, "--guest-endpoint-url", guestSrv.URL}
+		"--search-endpoint-url", searchSrv.URL, "--robot-endpoint-url", robotSrv.URL, "--guest-endpoint-url", guestSrv.URL,
+		"--integrations-endpoint-url", integrationsSrv.URL}
 	customOnly := []string{"--api-key", "k", "--endpoint-url", mainSrv.URL}
 
 	for _, tc := range []struct {
@@ -99,6 +105,8 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 		{"eventSearchV2 command, flag", accessEventsCmd, withFlags, "", "search", accessEvents},
 		{"robot command, flag", robotCmd, withFlags, "", "robot", robotConfig},
 		{"kiosk command, flag", kioskCmd, withFlags, "", "guest", kiosk},
+		{"integrations command, flag", webhookCmd, withFlags, "", "integrations", webhook},
+		{"accessControl integrations command, flag", kisiDoorsCmd, withFlags, "", "main", kisiDoors},
 		{"non-service command", cameraCmd, withFlags, "", "main", cameras},
 		{"eventSearch v1 command", v1SeekpointsCmd, withFlags, "", "main", v1Seekpoints},
 
@@ -107,6 +115,8 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 		{"eventSearchV2 command, env var", accessEventsCmd, customOnly, "search", "search", accessEvents},
 		{"robot command, env var", robotCmd, customOnly, "robot", "robot", robotConfig},
 		{"kiosk command, env var", kioskCmd, customOnly, "guest", "guest", kiosk},
+		{"integrations command, env var", webhookCmd, customOnly, "integrations", "integrations", webhook},
+		{"accessControl integrations command, env var", kisiDoorsCmd, customOnly, "integrations", "main", kisiDoors},
 		// One service's env var does not move another service's calls.
 		{"robot env var, search command", platesCmd, customOnly, "robot", "main", plates},
 		{"search env var, component command", doorCmd, customOnly, "search", "main", doorLabel},
@@ -118,6 +128,7 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 		{"custom endpoint, no search endpoint, eventSearchV2", accessEventsCmd, customOnly, "", "main", accessEvents},
 		{"custom endpoint, no robot endpoint", robotCmd, customOnly, "", "main", robotConfig},
 		{"custom endpoint, no guest endpoint", kioskCmd, customOnly, "", "main", kiosk},
+		{"custom endpoint, no integrations endpoint", webhookCmd, customOnly, "", "main", webhook},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer resetFlags()
@@ -143,8 +154,8 @@ func TestCommandsUseServiceEndpoints(t *testing.T) {
 			if len(hits) != 1 || hits[0].host != tc.wantHost || hits[0].path != tc.wantPath {
 				t.Fatalf("requests = %+v, want one to %s%s", hits, tc.wantHost, tc.wantPath)
 			}
-			for _, k := range []string{"componentEndpointUrl", "searchEndpointUrl", "robotEndpointUrl", "guestEndpointUrl", "endpointUrl",
-				"apiKey"} {
+			for _, k := range []string{"componentEndpointUrl", "searchEndpointUrl", "robotEndpointUrl", "guestEndpointUrl",
+				"integrationsEndpointUrl", "endpointUrl", "apiKey"} {
 				if _, ok := hits[0].body[k]; ok {
 					t.Errorf("request body carries global flag %q: %v", k, hits[0].body)
 				}
