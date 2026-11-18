@@ -53,9 +53,18 @@ var (
 		EnvVar:     "RHOMBUS_ROBOT_ENDPOINT_URL",
 		ProfileKey: "robot_endpoint_url",
 	}
+	GuestService = Service{
+		Name:       "guest",
+		Prefixes:   []string{"/api/guestmanagement", "/api/guestExternal", "/api/kiosk"},
+		USEndpoint: "https://api-guest.rhombussystems.com",
+		EUEndpoint: "https://api-guest.eu.rhombussystems.com",
+		Flag:       "guest-endpoint-url",
+		EnvVar:     "RHOMBUS_GUEST_ENDPOINT_URL",
+		ProfileKey: "guest_endpoint_url",
+	}
 
 	// Services lists every service the CLI calls at its own host.
-	Services = []Service{ComponentService, SearchService, RobotService}
+	Services = []Service{ComponentService, SearchService, RobotService, GuestService}
 )
 
 // Serves reports whether path is one of the service's paths.
@@ -82,13 +91,17 @@ func (s Service) FlagUsage() string {
 	return "Override endpoint URL for " + s.pathPatterns() + " calls (default: the region's " + s.Name + " host)"
 }
 
-// pathPatterns renders Prefixes for help text, e.g. "/api/search* and /api/eventSearchV2*".
+// pathPatterns renders Prefixes for help text, e.g. "/api/search* and /api/eventSearchV2*" or
+// "/api/guestmanagement*, /api/guestExternal* and /api/kiosk*".
 func (s Service) pathPatterns() string {
 	patterns := make([]string, len(s.Prefixes))
 	for i, p := range s.Prefixes {
 		patterns[i] = p + "*"
 	}
-	return strings.Join(patterns, " and ")
+	if len(patterns) < 2 {
+		return strings.Join(patterns, "")
+	}
+	return strings.Join(patterns[:len(patterns)-1], ", ") + " and " + patterns[len(patterns)-1]
 }
 
 // IsServiceFlag reports whether name is one of the services' global endpoint flags.

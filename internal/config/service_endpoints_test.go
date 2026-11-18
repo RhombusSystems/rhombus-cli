@@ -44,6 +44,15 @@ func TestServiceTable(t *testing.T) {
 			EnvVar:     "RHOMBUS_ROBOT_ENDPOINT_URL",
 			ProfileKey: "robot_endpoint_url",
 		},
+		{
+			Name:       "guest",
+			Prefixes:   []string{"/api/guestmanagement", "/api/guestExternal", "/api/kiosk"},
+			USEndpoint: "https://api-guest.rhombussystems.com",
+			EUEndpoint: "https://api-guest.eu.rhombussystems.com",
+			Flag:       "guest-endpoint-url",
+			EnvVar:     "RHOMBUS_GUEST_ENDPOINT_URL",
+			ProfileKey: "guest_endpoint_url",
+		},
 	}
 	if len(Services) != len(want) {
 		t.Fatalf("len(Services) = %d, want %d", len(Services), len(want))
@@ -81,6 +90,10 @@ func TestServiceEndpointForRegion(t *testing.T) {
 		{RobotService, RegionEU, "https://api-robot.eu.rhombussystems.com"},
 		{RobotService, "", "https://api-robot.rhombussystems.com"},
 		{RobotService, "ap", "https://api-robot.rhombussystems.com"},
+		{GuestService, RegionUS, "https://api-guest.rhombussystems.com"},
+		{GuestService, RegionEU, "https://api-guest.eu.rhombussystems.com"},
+		{GuestService, "", "https://api-guest.rhombussystems.com"},
+		{GuestService, "ap", "https://api-guest.rhombussystems.com"},
 	} {
 		if got := tc.svc.EndpointForRegion(tc.region); got != tc.want {
 			t.Errorf("%s.EndpointForRegion(%q) = %q, want %q", tc.svc.Name, tc.region, got, tc.want)
@@ -120,6 +133,21 @@ func TestServiceServes(t *testing.T) {
 		{"/api/robotics", ""},
 		{"/api/Robot/getConfig", ""},
 		{"/api/camera/robot/x", ""},
+
+		{"/api/guestmanagement/getGuestTypes", "guest"},
+		{"/api/guestmanagement", "guest"},
+		{"/api/guestExternal/updateGuestByToken", "guest"},
+		{"/api/guestExternal", "guest"},
+		{"/api/kiosk/updateKiosk", "guest"},
+		{"/api/kiosk", "guest"},
+		{"/api/guestManagement/getGuestTypes", ""},
+		{"/api/guestexternal/updateGuestByToken", ""},
+		{"/api/guest/x", ""},
+		{"/api/guestmanagementV2/x", ""},
+		{"/api/kiosks/x", ""},
+		{"/api/Kiosk/updateKiosk", ""},
+		{"/api/synthetics/guest", ""},
+		{"/api/camera/kiosk/x", ""},
 
 		{"/api/camera/getMinimalCameraStateList", ""},
 		{"", ""},
@@ -304,11 +332,15 @@ func TestServiceEndpointNamedProfile(t *testing.T) {
 }
 
 func TestServiceEndpointFor(t *testing.T) {
-	cfg := Config{ServiceEndpoints: map[string]string{"component": "https://c.example", "search": "https://s.example"}}
+	cfg := Config{ServiceEndpoints: map[string]string{"component": "https://c.example", "search": "https://s.example",
+		"guest": "https://g.example"}}
 	for _, tc := range []struct{ path, want string }{
 		{"/api/component/findAccessControlledDoors", "https://c.example"},
 		{"/api/search/searchLicensePlates", "https://s.example"},
 		{"/api/eventSearchV2/searchIntegrationAccessEvents", "https://s.example"},
+		{"/api/guestmanagement/getGuestTypes", "https://g.example"},
+		{"/api/guestExternal/updateGuestByToken", "https://g.example"},
+		{"/api/kiosk/updateKiosk", "https://g.example"},
 		{"/api/robot/getConfig", ""}, // no robot endpoint resolved
 		{"/api/camera/getMinimalCameraStateList", ""},
 	} {
@@ -329,11 +361,28 @@ func TestIsServiceFlag(t *testing.T) {
 		{"component-endpoint-url", true},
 		{"search-endpoint-url", true},
 		{"robot-endpoint-url", true},
+		{"guest-endpoint-url", true},
 		{"endpoint-url", false},
 		{"license-plate", false},
 	} {
 		if got := IsServiceFlag(tc.name); got != tc.want {
 			t.Errorf("IsServiceFlag(%q) = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// The global flags' help text names every path the service serves.
+func TestServiceFlagUsage(t *testing.T) {
+	for _, tc := range []struct {
+		svc  Service
+		want string
+	}{
+		{RobotService, "Override endpoint URL for /api/robot* calls (default: the region's robot host)"},
+		{SearchService, "Override endpoint URL for /api/search* and /api/eventSearchV2* calls (default: the region's search host)"},
+		{GuestService, "Override endpoint URL for /api/guestmanagement*, /api/guestExternal* and /api/kiosk* calls (default: the region's guest host)"},
+	} {
+		if got := tc.svc.FlagUsage(); got != tc.want {
+			t.Errorf("%s.FlagUsage() = %q, want %q", tc.svc.Name, got, tc.want)
 		}
 	}
 }

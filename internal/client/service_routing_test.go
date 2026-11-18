@@ -14,10 +14,11 @@ const (
 	componentHost = "https://api-component.example"
 	searchHost    = "https://api-search.example"
 	robotHost     = "https://api-robot.example"
+	guestHost     = "https://api-guest.example"
 )
 
 func allServices() map[string]string {
-	return map[string]string{"component": componentHost, "search": searchHost, "robot": robotHost}
+	return map[string]string{"component": componentHost, "search": searchHost, "robot": robotHost, "guest": guestHost}
 }
 
 func TestBaseURLRoutesServiceCalls(t *testing.T) {
@@ -38,6 +39,9 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		plates        = "/api/search/searchLicensePlates"
 		accessEvents  = "/api/eventSearchV2/searchIntegrationAccessEvents"
 		robotConfig   = "/api/robot/getConfig"
+		guestTypes    = "/api/guestmanagement/getGuestTypes"
+		guestByToken  = "/api/guestExternal/updateGuestByToken"
+		kiosk         = "/api/kiosk/updateKiosk"
 		cameras       = "/api/camera/getMinimalCameraStateList"
 		v1EventSearch = "/api/eventSearch/getEventSeekpoints"
 	)
@@ -56,6 +60,10 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"search call with OAuth", oauth, accessEvents, searchHost},
 		{"robot call", token, robotConfig, robotHost},
 		{"robot call with OAuth", oauth, robotConfig, robotHost},
+		{"guestmanagement call", token, guestTypes, guestHost},
+		{"guestExternal call", token, guestByToken, guestHost},
+		{"kiosk call", token, kiosk, guestHost},
+		{"guest call with OAuth", oauth, guestTypes, guestHost},
 		{"non-service call", token, cameras, mainHost},
 		{"eventSearch v1 stays on main", token, v1EventSearch, mainHost},
 
@@ -68,15 +76,22 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"case-sensitive search", token, "/api/Search/x", mainHost},
 		{"robot look-alike", token, "/api/robots/x", mainHost},
 		{"case-sensitive robot", token, "/api/Robot/getConfig", mainHost},
+		{"guestmanagement look-alike", token, "/api/guestmanagementV2/x", mainHost},
+		{"case-sensitive guestmanagement", token, "/api/guestManagement/getGuestTypes", mainHost},
+		{"kiosk look-alike", token, "/api/kiosks/x", mainHost},
+		{"guest synthetics stay on main", token, "/api/synthetics/guest", mainHost},
 
 		// No endpoint resolved for the service: its calls stay on the main endpoint.
 		{"no component endpoint", noServices, door, mainHost},
 		{"no search endpoint", noServices, plates, mainHost},
 		{"no eventSearchV2 endpoint", noServices, accessEvents, mainHost},
 		{"no robot endpoint", noServices, robotConfig, mainHost},
+		{"no guest endpoint", noServices, guestTypes, mainHost},
+		{"no guest endpoint, kiosk", noServices, kiosk, mainHost},
 		{"only search resolved: search", searchOnly, plates, searchHost},
 		{"only search resolved: component", searchOnly, door, mainHost},
 		{"only search resolved: robot", searchOnly, robotConfig, mainHost},
+		{"only search resolved: guest", searchOnly, kiosk, mainHost},
 
 		// A client certificate keeps every call on the main endpoint.
 		{"client certificate, component", cert, door, mainHost},
@@ -84,10 +99,14 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"client certificate, search", cert, plates, mainHost},
 		{"client certificate, eventSearchV2", cert, accessEvents, mainHost},
 		{"client certificate, robot", cert, robotConfig, mainHost},
+		{"client certificate, guestmanagement", cert, guestTypes, mainHost},
+		{"client certificate, guestExternal", cert, guestByToken, mainHost},
+		{"client certificate, kiosk", cert, kiosk, mainHost},
 		{"client certificate, non-service", cert, cameras, mainHost},
 		{"cert auth type without cert files, component", certTypeNoFiles, door, componentHost},
 		{"cert auth type without cert files, search", certTypeNoFiles, plates, searchHost},
 		{"cert auth type without cert files, robot", certTypeNoFiles, robotConfig, robotHost},
+		{"cert auth type without cert files, guest", certTypeNoFiles, kiosk, guestHost},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := baseURL(tc.cfg, tc.path); got != tc.want {
@@ -110,13 +129,15 @@ func TestAPICallSendsServiceCallsToServiceHosts(t *testing.T) {
 			_, _ = w.Write([]byte(`{}`))
 		}))
 	}
-	mainSrv, componentSrv, searchSrv, robotSrv := server("main"), server("component"), server("search"), server("robot")
-	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv} {
+	mainSrv, componentSrv, searchSrv, robotSrv, guestSrv := server("main"), server("component"), server("search"),
+		server("robot"), server("guest")
+	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv, guestSrv} {
 		defer s.Close()
 	}
 
 	direct := config.Config{AuthType: config.AuthTypeToken, ApiKey: "key-1", EndpointURL: mainSrv.URL,
-		ServiceEndpoints: map[string]string{"component": componentSrv.URL, "search": searchSrv.URL, "robot": robotSrv.URL}}
+		ServiceEndpoints: map[string]string{"component": componentSrv.URL, "search": searchSrv.URL, "robot": robotSrv.URL,
+			"guest": guestSrv.URL}}
 	fallback := config.Config{AuthType: config.AuthTypeToken, ApiKey: "key-1", EndpointURL: mainSrv.URL}
 
 	for _, tc := range []struct {
@@ -130,10 +151,14 @@ func TestAPICallSendsServiceCallsToServiceHosts(t *testing.T) {
 		{"search call", direct, "/api/search/searchLicensePlates", "search"},
 		{"eventSearchV2 call", direct, "/api/eventSearchV2/searchIntegrationAccessEvents", "search"},
 		{"robot call", direct, "/api/robot/getConfig", "robot"},
+		{"guestmanagement call", direct, "/api/guestmanagement/getGuestTypes", "guest"},
+		{"guestExternal call", direct, "/api/guestExternal/updateGuestByToken", "guest"},
+		{"kiosk call", direct, "/api/kiosk/updateKiosk", "guest"},
 		{"non-service call", direct, "/api/camera/getMinimalCameraStateList", "main"},
 		{"component call without service endpoints", fallback, "/api/component/findAccessControlledDoors", "main"},
 		{"search call without service endpoints", fallback, "/api/search/searchLicensePlates", "main"},
 		{"robot call without service endpoints", fallback, "/api/robot/getConfig", "main"},
+		{"guest call without service endpoints", fallback, "/api/kiosk/updateKiosk", "main"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mu.Lock()

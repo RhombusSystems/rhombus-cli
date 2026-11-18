@@ -170,10 +170,10 @@ func post(cfg config.Config, path, contentType string, body []byte, verboseBody 
 }
 
 // baseURL returns the host a call to path goes to. Calls to a service with its
-// own public host (config.Services: component, search, robot) go straight to
-// that host, except when no endpoint is resolved for the service (a custom
-// --endpoint-url without the service's own override, see config) or when the
-// request authenticates with a client certificate, which those hosts do not
+// own public host (config.Services: component, search, robot, guest) go
+// straight to that host, except when no endpoint is resolved for the service (a
+// custom --endpoint-url without the service's own override, see config) or when
+// the request authenticates with a client certificate, which those hosts do not
 // accept yet. Everything else goes to cfg.EndpointURL.
 func baseURL(cfg config.Config, path string) string {
 	if ep := cfg.ServiceEndpointFor(path); ep != "" && !auth.UsesClientCert(cfg) {
