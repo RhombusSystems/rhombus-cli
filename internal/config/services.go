@@ -16,6 +16,12 @@ type Service struct {
 	// "/api/searchFoo".
 	Prefixes []string
 
+	// Excludes are paths under Prefixes that the service does not serve
+	// (another service's, which stay on the main endpoint), matched the same
+	// way: "/api/integrations/accessControl" takes "/api/integrations/accessControl/x"
+	// out of "/api/integrations" but not "/api/integrations/accessControlFoo".
+	Excludes []string
+
 	USEndpoint string // the service's public host in the US region (and unknown regions)
 	EUEndpoint string // the service's public host in the EU region
 
@@ -62,14 +68,33 @@ var (
 		EnvVar:     "RHOMBUS_GUEST_ENDPOINT_URL",
 		ProfileKey: "guest_endpoint_url",
 	}
+	IntegrationsService = Service{
+		Name:     "integrations",
+		Prefixes: []string{"/api/integrations", "/api/boulevard"},
+		// The access control integrations belong to the access control
+		// service, which has no host of its own yet: they stay on the main API.
+		Excludes:   []string{"/api/integrations/accessControl"},
+		USEndpoint: "https://api-integrations.rhombussystems.com",
+		EUEndpoint: "https://api-integrations.eu.rhombussystems.com",
+		Flag:       "integrations-endpoint-url",
+		EnvVar:     "RHOMBUS_INTEGRATIONS_ENDPOINT_URL",
+		ProfileKey: "integrations_endpoint_url",
+	}
 
 	// Services lists every service the CLI calls at its own host.
-	Services = []Service{ComponentService, SearchService, RobotService, GuestService}
+	Services = []Service{ComponentService, SearchService, RobotService, GuestService, IntegrationsService}
 )
 
-// Serves reports whether path is one of the service's paths.
+// Serves reports whether path is one of the service's paths: under one of its
+// Prefixes and none of its Excludes.
 func (s Service) Serves(path string) bool {
-	for _, p := range s.Prefixes {
+	return underAny(path, s.Prefixes) && !underAny(path, s.Excludes)
+}
+
+// underAny reports whether path is one of prefixes or below one of them on a
+// "/" boundary.
+func underAny(path string, prefixes []string) bool {
+	for _, p := range prefixes {
 		if path == p || strings.HasPrefix(path, p+"/") {
 			return true
 		}
@@ -88,14 +113,18 @@ func (s Service) EndpointForRegion(region string) string {
 
 // FlagUsage is the help text of the service's global flag.
 func (s Service) FlagUsage() string {
-	return "Override endpoint URL for " + s.pathPatterns() + " calls (default: the region's " + s.Name + " host)"
+	usage := "Override endpoint URL for " + pathPatterns(s.Prefixes) + " calls"
+	if len(s.Excludes) > 0 {
+		usage += " except " + pathPatterns(s.Excludes)
+	}
+	return usage + " (default: the region's " + s.Name + " host)"
 }
 
-// pathPatterns renders Prefixes for help text, e.g. "/api/search* and /api/eventSearchV2*" or
+// pathPatterns renders prefixes for help text, e.g. "/api/search* and /api/eventSearchV2*" or
 // "/api/guestmanagement*, /api/guestExternal* and /api/kiosk*".
-func (s Service) pathPatterns() string {
-	patterns := make([]string, len(s.Prefixes))
-	for i, p := range s.Prefixes {
+func pathPatterns(prefixes []string) string {
+	patterns := make([]string, len(prefixes))
+	for i, p := range prefixes {
 		patterns[i] = p + "*"
 	}
 	if len(patterns) < 2 {

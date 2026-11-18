@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -53,22 +54,23 @@ func TestServiceTable(t *testing.T) {
 			EnvVar:     "RHOMBUS_GUEST_ENDPOINT_URL",
 			ProfileKey: "guest_endpoint_url",
 		},
+		{
+			Name:       "integrations",
+			Prefixes:   []string{"/api/integrations", "/api/boulevard"},
+			Excludes:   []string{"/api/integrations/accessControl"},
+			USEndpoint: "https://api-integrations.rhombussystems.com",
+			EUEndpoint: "https://api-integrations.eu.rhombussystems.com",
+			Flag:       "integrations-endpoint-url",
+			EnvVar:     "RHOMBUS_INTEGRATIONS_ENDPOINT_URL",
+			ProfileKey: "integrations_endpoint_url",
+		},
 	}
 	if len(Services) != len(want) {
 		t.Fatalf("len(Services) = %d, want %d", len(Services), len(want))
 	}
 	for i, w := range want {
-		got := Services[i]
-		if got.Name != w.Name || got.USEndpoint != w.USEndpoint || got.EUEndpoint != w.EUEndpoint ||
-			got.Flag != w.Flag || got.EnvVar != w.EnvVar || got.ProfileKey != w.ProfileKey ||
-			len(got.Prefixes) != len(w.Prefixes) {
+		if got := Services[i]; !reflect.DeepEqual(got, w) {
 			t.Errorf("Services[%d] = %+v, want %+v", i, got, w)
-			continue
-		}
-		for j := range w.Prefixes {
-			if got.Prefixes[j] != w.Prefixes[j] {
-				t.Errorf("Services[%d].Prefixes = %v, want %v", i, got.Prefixes, w.Prefixes)
-			}
 		}
 	}
 }
@@ -94,6 +96,10 @@ func TestServiceEndpointForRegion(t *testing.T) {
 		{GuestService, RegionEU, "https://api-guest.eu.rhombussystems.com"},
 		{GuestService, "", "https://api-guest.rhombussystems.com"},
 		{GuestService, "ap", "https://api-guest.rhombussystems.com"},
+		{IntegrationsService, RegionUS, "https://api-integrations.rhombussystems.com"},
+		{IntegrationsService, RegionEU, "https://api-integrations.eu.rhombussystems.com"},
+		{IntegrationsService, "", "https://api-integrations.rhombussystems.com"},
+		{IntegrationsService, "ap", "https://api-integrations.rhombussystems.com"},
 	} {
 		if got := tc.svc.EndpointForRegion(tc.region); got != tc.want {
 			t.Errorf("%s.EndpointForRegion(%q) = %q, want %q", tc.svc.Name, tc.region, got, tc.want)
@@ -148,6 +154,24 @@ func TestServiceServes(t *testing.T) {
 		{"/api/Kiosk/updateKiosk", ""},
 		{"/api/synthetics/guest", ""},
 		{"/api/camera/kiosk/x", ""},
+
+		{"/api/integrations/getOrgIntegrationsV2", "integrations"},
+		{"/api/integrations/webhooks/getWebhookIntegration", "integrations"},
+		{"/api/integrations/IoT/getShellyIntegration", "integrations"},
+		{"/api/integrations", "integrations"},
+		{"/api/boulevard/unlock", "integrations"},
+		{"/api/boulevard", "integrations"},
+		{"/api/integrationsV2/x", ""},
+		{"/api/Integrations/getOrgIntegrationsV2", ""},
+		{"/api/boulevards/x", ""},
+		{"/api/camera/integrations/x", ""},
+		// The access control integrations are the access control service's: main endpoint.
+		{"/api/integrations/accessControl/getKisiDoors", ""},
+		{"/api/integrations/accessControl/aperio/getAperioIntegration", ""},
+		{"/api/integrations/accessControl", ""},
+		// Excludes match on whole segments too.
+		{"/api/integrations/accessControlV2/x", "integrations"},
+		{"/api/integrations/accesscontrol/x", "integrations"},
 
 		{"/api/camera/getMinimalCameraStateList", ""},
 		{"", ""},
@@ -333,7 +357,7 @@ func TestServiceEndpointNamedProfile(t *testing.T) {
 
 func TestServiceEndpointFor(t *testing.T) {
 	cfg := Config{ServiceEndpoints: map[string]string{"component": "https://c.example", "search": "https://s.example",
-		"guest": "https://g.example"}}
+		"guest": "https://g.example", "integrations": "https://i.example"}}
 	for _, tc := range []struct{ path, want string }{
 		{"/api/component/findAccessControlledDoors", "https://c.example"},
 		{"/api/search/searchLicensePlates", "https://s.example"},
@@ -341,7 +365,10 @@ func TestServiceEndpointFor(t *testing.T) {
 		{"/api/guestmanagement/getGuestTypes", "https://g.example"},
 		{"/api/guestExternal/updateGuestByToken", "https://g.example"},
 		{"/api/kiosk/updateKiosk", "https://g.example"},
-		{"/api/robot/getConfig", ""}, // no robot endpoint resolved
+		{"/api/integrations/getOrgIntegrationsV2", "https://i.example"},
+		{"/api/boulevard/unlock", "https://i.example"},
+		{"/api/integrations/accessControl/getKisiDoors", ""}, // excluded: main endpoint
+		{"/api/robot/getConfig", ""},                         // no robot endpoint resolved
 		{"/api/camera/getMinimalCameraStateList", ""},
 	} {
 		if got := cfg.ServiceEndpointFor(tc.path); got != tc.want {
@@ -362,6 +389,7 @@ func TestIsServiceFlag(t *testing.T) {
 		{"search-endpoint-url", true},
 		{"robot-endpoint-url", true},
 		{"guest-endpoint-url", true},
+		{"integrations-endpoint-url", true},
 		{"endpoint-url", false},
 		{"license-plate", false},
 	} {
@@ -380,6 +408,7 @@ func TestServiceFlagUsage(t *testing.T) {
 		{RobotService, "Override endpoint URL for /api/robot* calls (default: the region's robot host)"},
 		{SearchService, "Override endpoint URL for /api/search* and /api/eventSearchV2* calls (default: the region's search host)"},
 		{GuestService, "Override endpoint URL for /api/guestmanagement*, /api/guestExternal* and /api/kiosk* calls (default: the region's guest host)"},
+		{IntegrationsService, "Override endpoint URL for /api/integrations* and /api/boulevard* calls except /api/integrations/accessControl* (default: the region's integrations host)"},
 	} {
 		if got := tc.svc.FlagUsage(); got != tc.want {
 			t.Errorf("%s.FlagUsage() = %q, want %q", tc.svc.Name, got, tc.want)

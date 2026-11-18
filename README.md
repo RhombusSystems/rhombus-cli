@@ -80,6 +80,7 @@ Prompts for an API key, output format, and endpoint URL. Useful when you already
 | `RHOMBUS_SEARCH_ENDPOINT_URL` | Endpoint override for `/api/search*` and `/api/eventSearchV2*` calls (see [Service endpoints](#service-endpoints)) |
 | `RHOMBUS_ROBOT_ENDPOINT_URL` | Endpoint override for `/api/robot*` calls (see [Service endpoints](#service-endpoints)) |
 | `RHOMBUS_GUEST_ENDPOINT_URL` | Endpoint override for `/api/guestmanagement*`, `/api/guestExternal*` and `/api/kiosk*` calls (see [Service endpoints](#service-endpoints)) |
+| `RHOMBUS_INTEGRATIONS_ENDPOINT_URL` | Endpoint override for `/api/integrations*` (except `/api/integrations/accessControl*`) and `/api/boulevard*` calls (see [Service endpoints](#service-endpoints)) |
 
 ### Service endpoints
 
@@ -91,8 +92,9 @@ Some API services run apart from the main API, and the CLI calls their own hosts
 | search | `/api/search*`, `/api/eventSearchV2*` | `rhombus search`, `rhombus elements events`, `rhombus netbox events`, `rhombus onguard events` | `https://api-search.rhombussystems.com` | `https://api-search.eu.rhombussystems.com` |
 | robot | `/api/robot*` | `rhombus robot` | `https://api-robot.rhombussystems.com` | `https://api-robot.eu.rhombussystems.com` |
 | guest | `/api/guestmanagement*`, `/api/guestExternal*`, `/api/kiosk*` | `rhombus guest-management-kiosk` | `https://api-guest.rhombussystems.com` | `https://api-guest.eu.rhombussystems.com` |
+| integrations | `/api/integrations*` except `/api/integrations/accessControl*`, `/api/boulevard*` | `rhombus integrations`, `rhombus org-integrations`, `rhombus webhook-integrations`, `rhombus storage-integrations`, `rhombus iot-integrations`, `rhombus service-management-integrations`, `rhombus incident-management-integrations` | `https://api-integrations.rhombussystems.com` | `https://api-integrations.eu.rhombussystems.com` |
 
-Paths match on whole segments: `/api/search/...` goes to the search host, `/api/searchFoo/...` does not. Override a service's host with its flag, environment variable, or key in the profile's section of `~/.rhombus/config` (in that order of precedence):
+Paths match on whole segments: `/api/search/...` goes to the search host, `/api/searchFoo/...` does not. The access control integrations (`/api/integrations/accessControl/...`: `rhombus access-control-integrations`, `rhombus access-control`) are not the integrations service's and stay on the main endpoint. Override a service's host with its flag, environment variable, or key in the profile's section of `~/.rhombus/config` (in that order of precedence):
 
 | Service | Flag | Environment variable | Profile key |
 |---|---|---|---|
@@ -100,6 +102,7 @@ Paths match on whole segments: `/api/search/...` goes to the search host, `/api/
 | search | `--search-endpoint-url` | `RHOMBUS_SEARCH_ENDPOINT_URL` | `search_endpoint_url` |
 | robot | `--robot-endpoint-url` | `RHOMBUS_ROBOT_ENDPOINT_URL` | `robot_endpoint_url` |
 | guest | `--guest-endpoint-url` | `RHOMBUS_GUEST_ENDPOINT_URL` | `guest_endpoint_url` |
+| integrations | `--integrations-endpoint-url` | `RHOMBUS_INTEGRATIONS_ENDPOINT_URL` | `integrations_endpoint_url` |
 
 A service's calls use the main endpoint instead when:
 
@@ -134,6 +137,7 @@ rhombus <command> [subcommand] [flags]
 --search-endpoint-url string     Override the endpoint for /api/search* and /api/eventSearchV2* calls
 --robot-endpoint-url string      Override the endpoint for /api/robot* calls
 --guest-endpoint-url string      Override the endpoint for /api/guestmanagement*, /api/guestExternal* and /api/kiosk* calls
+--integrations-endpoint-url string  Override the endpoint for /api/integrations* and /api/boulevard* calls except /api/integrations/accessControl*
 --partner-org string             Client org name or UUID (partner accounts)
 --verbose                        Print full HTTP request and response details
 ```

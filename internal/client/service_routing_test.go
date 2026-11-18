@@ -10,15 +10,17 @@ import (
 )
 
 const (
-	mainHost      = "https://api2.example"
-	componentHost = "https://api-component.example"
-	searchHost    = "https://api-search.example"
-	robotHost     = "https://api-robot.example"
-	guestHost     = "https://api-guest.example"
+	mainHost         = "https://api2.example"
+	componentHost    = "https://api-component.example"
+	searchHost       = "https://api-search.example"
+	robotHost        = "https://api-robot.example"
+	guestHost        = "https://api-guest.example"
+	integrationsHost = "https://api-integrations.example"
 )
 
 func allServices() map[string]string {
-	return map[string]string{"component": componentHost, "search": searchHost, "robot": robotHost, "guest": guestHost}
+	return map[string]string{"component": componentHost, "search": searchHost, "robot": robotHost, "guest": guestHost,
+		"integrations": integrationsHost}
 }
 
 func TestBaseURLRoutesServiceCalls(t *testing.T) {
@@ -41,6 +43,10 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		robotConfig   = "/api/robot/getConfig"
 		guestTypes    = "/api/guestmanagement/getGuestTypes"
 		guestByToken  = "/api/guestExternal/updateGuestByToken"
+		orgIntegs     = "/api/integrations/getOrgIntegrationsV2"
+		webhook       = "/api/integrations/webhooks/getWebhookIntegration"
+		boulevard     = "/api/boulevard/unlock"
+		kisiDoors     = "/api/integrations/accessControl/getKisiDoors"
 		kiosk         = "/api/kiosk/updateKiosk"
 		cameras       = "/api/camera/getMinimalCameraStateList"
 		v1EventSearch = "/api/eventSearch/getEventSeekpoints"
@@ -64,6 +70,12 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"guestExternal call", token, guestByToken, guestHost},
 		{"kiosk call", token, kiosk, guestHost},
 		{"guest call with OAuth", oauth, guestTypes, guestHost},
+		{"integrations call", token, orgIntegs, integrationsHost},
+		{"integrations sub-resource call", token, webhook, integrationsHost},
+		{"boulevard call", token, boulevard, integrationsHost},
+		{"integrations call with OAuth", oauth, orgIntegs, integrationsHost},
+		{"accessControl integrations stay on main", token, kisiDoors, mainHost},
+		{"accessControl integrations stay on main with OAuth", oauth, kisiDoors, mainHost},
 		{"non-service call", token, cameras, mainHost},
 		{"eventSearch v1 stays on main", token, v1EventSearch, mainHost},
 
@@ -80,6 +92,9 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"case-sensitive guestmanagement", token, "/api/guestManagement/getGuestTypes", mainHost},
 		{"kiosk look-alike", token, "/api/kiosks/x", mainHost},
 		{"guest synthetics stay on main", token, "/api/synthetics/guest", mainHost},
+		{"integrations look-alike", token, "/api/integrationsV2/x", mainHost},
+		{"case-sensitive integrations", token, "/api/Integrations/getOrgIntegrationsV2", mainHost},
+		{"accessControl look-alike is integrations'", token, "/api/integrations/accessControlV2/x", integrationsHost},
 
 		// No endpoint resolved for the service: its calls stay on the main endpoint.
 		{"no component endpoint", noServices, door, mainHost},
@@ -88,10 +103,13 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"no robot endpoint", noServices, robotConfig, mainHost},
 		{"no guest endpoint", noServices, guestTypes, mainHost},
 		{"no guest endpoint, kiosk", noServices, kiosk, mainHost},
+		{"no integrations endpoint", noServices, orgIntegs, mainHost},
+		{"no integrations endpoint, boulevard", noServices, boulevard, mainHost},
 		{"only search resolved: search", searchOnly, plates, searchHost},
 		{"only search resolved: component", searchOnly, door, mainHost},
 		{"only search resolved: robot", searchOnly, robotConfig, mainHost},
 		{"only search resolved: guest", searchOnly, kiosk, mainHost},
+		{"only search resolved: integrations", searchOnly, orgIntegs, mainHost},
 
 		// A client certificate keeps every call on the main endpoint.
 		{"client certificate, component", cert, door, mainHost},
@@ -102,11 +120,14 @@ func TestBaseURLRoutesServiceCalls(t *testing.T) {
 		{"client certificate, guestmanagement", cert, guestTypes, mainHost},
 		{"client certificate, guestExternal", cert, guestByToken, mainHost},
 		{"client certificate, kiosk", cert, kiosk, mainHost},
+		{"client certificate, integrations", cert, orgIntegs, mainHost},
+		{"client certificate, boulevard", cert, boulevard, mainHost},
 		{"client certificate, non-service", cert, cameras, mainHost},
 		{"cert auth type without cert files, component", certTypeNoFiles, door, componentHost},
 		{"cert auth type without cert files, search", certTypeNoFiles, plates, searchHost},
 		{"cert auth type without cert files, robot", certTypeNoFiles, robotConfig, robotHost},
 		{"cert auth type without cert files, guest", certTypeNoFiles, kiosk, guestHost},
+		{"cert auth type without cert files, integrations", certTypeNoFiles, orgIntegs, integrationsHost},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := baseURL(tc.cfg, tc.path); got != tc.want {
@@ -129,15 +150,15 @@ func TestAPICallSendsServiceCallsToServiceHosts(t *testing.T) {
 			_, _ = w.Write([]byte(`{}`))
 		}))
 	}
-	mainSrv, componentSrv, searchSrv, robotSrv, guestSrv := server("main"), server("component"), server("search"),
-		server("robot"), server("guest")
-	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv, guestSrv} {
+	mainSrv, componentSrv, searchSrv, robotSrv, guestSrv, integrationsSrv := server("main"), server("component"),
+		server("search"), server("robot"), server("guest"), server("integrations")
+	for _, s := range []*httptest.Server{mainSrv, componentSrv, searchSrv, robotSrv, guestSrv, integrationsSrv} {
 		defer s.Close()
 	}
 
 	direct := config.Config{AuthType: config.AuthTypeToken, ApiKey: "key-1", EndpointURL: mainSrv.URL,
 		ServiceEndpoints: map[string]string{"component": componentSrv.URL, "search": searchSrv.URL, "robot": robotSrv.URL,
-			"guest": guestSrv.URL}}
+			"guest": guestSrv.URL, "integrations": integrationsSrv.URL}}
 	fallback := config.Config{AuthType: config.AuthTypeToken, ApiKey: "key-1", EndpointURL: mainSrv.URL}
 
 	for _, tc := range []struct {
@@ -154,11 +175,15 @@ func TestAPICallSendsServiceCallsToServiceHosts(t *testing.T) {
 		{"guestmanagement call", direct, "/api/guestmanagement/getGuestTypes", "guest"},
 		{"guestExternal call", direct, "/api/guestExternal/updateGuestByToken", "guest"},
 		{"kiosk call", direct, "/api/kiosk/updateKiosk", "guest"},
+		{"integrations call", direct, "/api/integrations/getOrgIntegrationsV2", "integrations"},
+		{"boulevard call", direct, "/api/boulevard/unlock", "integrations"},
+		{"accessControl integrations call", direct, "/api/integrations/accessControl/getKisiDoors", "main"},
 		{"non-service call", direct, "/api/camera/getMinimalCameraStateList", "main"},
 		{"component call without service endpoints", fallback, "/api/component/findAccessControlledDoors", "main"},
 		{"search call without service endpoints", fallback, "/api/search/searchLicensePlates", "main"},
 		{"robot call without service endpoints", fallback, "/api/robot/getConfig", "main"},
 		{"guest call without service endpoints", fallback, "/api/kiosk/updateKiosk", "main"},
+		{"integrations call without service endpoints", fallback, "/api/integrations/getOrgIntegrationsV2", "main"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mu.Lock()
